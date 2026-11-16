@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { Box, Container, List, ListItemButton, ListItemIcon, ListItemText, Paper, Tab, Tabs } from '@mui/material';
+import { Box, Container, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Paper, Tab, Tabs } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import CardMembershipIcon from '@mui/icons-material/CardMembership';
@@ -38,10 +38,12 @@ export default function AdminLayout() {
           <Paper variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, position: 'sticky', top: 88 }}>
             <List dense>
               {NAV.map((n, i) => (
-                <ListItemButton key={n.to} component={NavLink} to={n.to} end={n.end} selected={i === current}>
-                  <ListItemIcon sx={{ minWidth: 36 }}>{n.icon}</ListItemIcon>
-                  <ListItemText primary={n.label} />
-                </ListItemButton>
+                <ListItem key={n.to} disablePadding>
+                  <ListItemButton component={NavLink} to={n.to} end={n.end} selected={i === current}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>{n.icon}</ListItemIcon>
+                    <ListItemText primary={n.label} />
+                  </ListItemButton>
+                </ListItem>
               ))}
             </List>
           </Paper>

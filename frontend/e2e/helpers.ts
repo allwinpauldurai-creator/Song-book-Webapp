@@ -1,0 +1,41 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page } from '@playwright/test';
+
+export const ADMIN = { email: 'admin@songbook.local', password: 'ChangeMe-Admin-123' };
+
+export async function loginViaUi(page: Page, user = ADMIN) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill(user.email);
+  await page.locator('input[autocomplete="current-password"]').fill(user.password);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await expect(page).toHaveURL(/\/me$/);
+}
+
+/** Opens a book's detail page by searching the public catalogue for its title. */
+export async function openBook(page: Page, title: string) {
+  await page.goto(`/books?q=${encodeURIComponent(title)}`);
+  await page.getByRole('link', { name: new RegExp(title) }).first().click();
+  await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+}
+
+/** WCAG 2.1 A/AA scan; returns readable violation lines (empty when clean). */
+export async function a11yViolations(page: Page): Promise<string[]> {
+  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  return result.violations.map(
+    (v) => `[${v.impact}] ${v.id}: ${v.help} (${v.nodes.length}x) e.g. ${v.nodes[0]?.target.join(' ')}`,
+  );
+}
+
+/**
+ * Waits until the page has rendered its data: no MUI loading skeletons/spinners and every image
+ * finished loading. (More reliable than 'networkidle', which a dev server can keep busy.)
+ */
+export async function settled(page: Page) {
+  await page.waitForFunction(
+    () =>
+      !document.querySelector('.MuiSkeleton-root, .MuiCircularProgress-root') &&
+      [...document.images].every((img) => img.complete),
+    undefined,
+    { timeout: 15_000 },
+  );
+}

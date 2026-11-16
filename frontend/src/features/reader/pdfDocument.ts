@@ -7,6 +7,9 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 /** Bytes fetched per range request, and the size of the first probe. */
 const CHUNK = 64 * 1024;
 
+/** Base URL of the PDF.js runtime assets (see vite-plugin-pdfjs-assets.ts). */
+const ASSETS = `${import.meta.env.BASE_URL}pdfjs/`;
+
 export interface OpenedPdf {
   doc: PDFDocumentProxy;
   /** Stops all loading; safe to call more than once. */
@@ -37,6 +40,13 @@ export async function openPdf(loader: TicketedRangeLoader, onError: (e: unknown)
     range: transport,
     rangeChunkSize: CHUNK,
     disableAutoFetch: true, // fetch pages on demand only
+    // Runtime assets served by vite-plugin-pdfjs-assets: image decoders for scanned books
+    // (JBIG2, JPEG 2000), CJK/CID character maps, non-embedded standard fonts, ICC profiles.
+    wasmUrl: `${ASSETS}wasm/`,
+    cMapUrl: `${ASSETS}cmaps/`,
+    cMapPacked: true,
+    standardFontDataUrl: `${ASSETS}standard_fonts/`,
+    iccUrl: `${ASSETS}iccs/`,
   });
 
   let destroyed = false;

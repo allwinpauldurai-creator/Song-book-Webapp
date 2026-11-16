@@ -21,6 +21,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -103,6 +104,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ApiError> handleMethod(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
         return build(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "Method not allowed", request);
+    }
+
+    /**
+     * The client went away mid-response (navigated away while a cover or PDF range was streaming).
+     * Nothing can be sent and nothing failed on our side, so log quietly instead of as an ERROR with
+     * a stack trace. Writing an ApiError here would also fail: the response is already image/png or
+     * application/pdf. Without this, clients could flood the logs just by cancelling downloads.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientAbort(AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        log.debug("Client disconnected during {} {}", request.getMethod(), request.getRequestURI());
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

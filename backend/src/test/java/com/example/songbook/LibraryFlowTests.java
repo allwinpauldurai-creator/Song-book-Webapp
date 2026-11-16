@@ -34,7 +34,7 @@ class LibraryFlowTests extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].title").value(title))
-                .andExpect(jsonPath("$.content[0].coverUrl").value("/api/v1/books/" + bookId + "/cover"))
+                .andExpect(jsonPath("$.content[0].coverUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/books/" + bookId + "/cover?v=")))
                 .andReturn();
         String raw = list.getResponse().getContentAsString();
         assertThat(raw).doesNotContain("book-pdfs").doesNotContain("blob").doesNotContain(".pdf");
@@ -300,7 +300,9 @@ class LibraryFlowTests extends IntegrationTest {
                                     return r;
                                 }), admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.coverUrl").isNotEmpty());
+                // A replaced cover gets a new URL, so the 24 h public cache cannot serve the old image.
+                .andExpect(jsonPath("$.coverUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/books/" + bookId + "/cover?v=")))
+                .andExpect(jsonPath("$.coverUrl").value(org.hamcrest.Matchers.not(book.get("coverUrl").asText())));
     }
 
     @Test

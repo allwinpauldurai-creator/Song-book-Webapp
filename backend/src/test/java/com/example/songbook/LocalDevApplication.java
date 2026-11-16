@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
-import javax.sql.DataSource;
+import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,10 +55,19 @@ public class LocalDevApplication {
                     .start();
         }
 
-        @Bean
+        /**
+         * Pooled like production (Hikari, 10 connections). {@code getPostgresDatabase()} alone is an
+         * unpooled PGSimpleDataSource: every query opened a new connection (a new postgres process on
+         * Windows), capping the local API at ~30 requests/s regardless of endpoint.
+         */
+        @Bean(destroyMethod = "close")
         @Primary
-        DataSource dataSource(EmbeddedPostgres postgres) {
-            return postgres.getPostgresDatabase();
+        HikariDataSource dataSource(EmbeddedPostgres postgres) {
+            HikariDataSource pool = new HikariDataSource();
+            pool.setDataSource(postgres.getPostgresDatabase());
+            pool.setPoolName("dev-embedded-postgres");
+            pool.setMaximumPoolSize(10);
+            return pool;
         }
 
         /** Prints emails (including their one-time links) to the console. Never use outside local dev. */

@@ -202,17 +202,16 @@ function MetadataForm({ book }: { book?: AdminBookDetail }) {
 function CoverCard({ book }: { book: AdminBookDetail }) {
   const invalidate = useInvalidateBooks();
   const [file, setFile] = useState<File | null>(null);
-  const [bust, setBust] = useState(0); // cover URL is stable; bust the browser cache after replacing
   const replace = useMutation({
     mutationFn: () => adminApi.replaceCover(book.id, file!),
     onSuccess: () => {
       setFile(null);
-      setBust(Date.now());
       invalidate(book.id);
     },
   });
   const error = checkImage(file);
-  const url = book.coverUrl ? `${book.coverUrl}${bust ? `?v=${bust}` : ''}` : null;
+  // The backend versions the cover URL (?v=<asset id>), so a replaced cover shows immediately.
+  const url = book.coverUrl ?? null;
   return (
     <Card>
       <CardContent>
@@ -402,7 +401,7 @@ export default function BookFormPage() {
               <>
                 <BookChip status={b.status} />
                 {b.availableToday && (
-                  <Button component={RouterLink} to={`/books/${b.id}`} target="_blank" startIcon={<OpenInNewIcon />}>Public page</Button>
+                  <Button component={RouterLink} to={`/books/${b.id}`} target="_blank" rel="noopener" startIcon={<OpenInNewIcon />}>Public page</Button>
                 )}
                 <ArchiveButton book={b} />
               </>

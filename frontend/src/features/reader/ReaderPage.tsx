@@ -41,6 +41,7 @@ import { usePdfDownload } from './usePdfDownload';
 
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 const SAVE_DELAY_MS = 1500;
+const PROGRESS_WAIT_MS = 1500;
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 /** PDF.js reader for /read/:id (docs/UI_FLOWS.md "Reader" wireframe, brief §7). */
@@ -55,26 +56,41 @@ export default function ReaderPage() {
   const [error, setError] = useState<unknown>(null);
   const [page, setPage] = useState(1);
   const savedPage = useRef(1);
+  /** Set once the reader turns a page, so late-arriving saved progress never yanks them back. */
+  const navigated = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let opened: OpenedPdf | null = null;
     setDoc(null);
     setError(null);
+    navigated.current = false;
     const loader = new TicketedRangeLoader({ requestGrant: () => readerApi.readAccess(id) });
+    // Saved progress is a convenience and must never delay the book: use it if it arrives within
+    // PROGRESS_WAIT_MS of the PDF being ready, otherwise open at page 1 and jump when it lands
+    // (unless the reader has already moved).
+    const progress = readerApi.progress(id).catch(() => null);
 
     (async () => {
       try {
-        const [progress, pdf] = await Promise.all([
-          readerApi.progress(id).catch(() => null), // progress is a convenience; never block reading
-          openPdf(loader, (e) => !cancelled && setError(e)),
-        ]);
+        const pdf = await openPdf(loader, (e) => !cancelled && setError(e));
         if (cancelled) return pdf.destroy();
         opened = pdf;
-        const start = clamp(progress?.lastPage ?? 1, 1, pdf.doc.numPages);
+        const total = pdf.doc.numPages;
+        const early = await Promise.race([progress, new Promise<undefined>((r) => setTimeout(r, PROGRESS_WAIT_MS))]);
+        if (cancelled) return;
+        const start = clamp(early?.lastPage ?? 1, 1, total);
         savedPage.current = start;
         setPage(start);
         setDoc(pdf.doc);
+        if (early === undefined) {
+          const late = await progress;
+          if (!cancelled && late && !navigated.current) {
+            const p = clamp(late.lastPage, 1, total);
+            savedPage.current = p;
+            setPage(p);
+          }
+        }
       } catch (e) {
         if (!cancelled) setError(e);
       }
@@ -87,7 +103,14 @@ export default function ReaderPage() {
   }, [id, reloadKey]);
 
   const numPages = doc?.numPages ?? 0;
-  const goTo = useCallback((p: number) => numPages && setPage(clamp(p, 1, numPages)), [numPages]);
+  const goTo = useCallback(
+    (p: number) => {
+      if (!numPages) return;
+      navigated.current = true;
+      setPage(clamp(p, 1, numPages));
+    },
+    [numPages],
+  );
 
   // ------------------------------------------------------------ progress (debounced save)
   useEffect(() => {
@@ -151,7 +174,7 @@ export default function ReaderPage() {
     if (!search.matches.length) return;
     const next =
       dir === 1 ? search.matches.find((m) => m.page > page) ?? search.matches[0] : [...search.matches].reverse().find((m) => m.page < page) ?? search.matches.at(-1);
-    if (next) setPage(next.page);
+    if (next) goTo(next.page);
   };
 
   const submitSearch = async (e: FormEvent) => {
@@ -164,8 +187,8 @@ export default function ReaderPage() {
     const first = search.matches[0];
     if (!first || jumpedFor.current === search.query) return;
     jumpedFor.current = search.query;
-    if (!search.matches.some((m) => m.page === page)) setPage(first.page);
-  }, [search.matches, search.query, page]);
+    if (!search.matches.some((m) => m.page === page)) goTo(first.page);
+  }, [search.matches, search.query, page, goTo]);
 
   const closeSearch = () => {
     setSearchOpen(false);
@@ -360,7 +383,19 @@ export default function ReaderPage() {
         ref={scrollRef}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        sx={{ flex: 1, overflow: 'auto', bgcolor: 'action.hover', py: 2, px: 2, display: 'flex' }}
+        // Focusable so keyboard users can scroll a zoomed page with the arrow keys (WCAG 2.1.1).
+        tabIndex={0}
+        role="region"
+        aria-label={`${title}, page ${page}${numPages ? ` of ${numPages}` : ''}`}
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          bgcolor: 'action.hover',
+          py: 2,
+          px: 2,
+          display: 'flex',
+          '&:focus-visible': { outline: 2, outlineColor: 'primary.main', outlineOffset: -2 },
+        }}
       >
         {doc ? (
           <Box sx={{ m: 'auto' }}>

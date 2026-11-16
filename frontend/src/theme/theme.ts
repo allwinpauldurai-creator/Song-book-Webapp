@@ -7,7 +7,10 @@ export const theme = createTheme({
     light: {
       palette: {
         primary: { main: '#3949ab' },
-        secondary: { main: '#00897b' },
+        secondary: { main: '#00796b' }, // teal 700: 4.5:1+ with white both ways (WCAG AA); teal 600 was 4.31
+        // MUI defaults fail WCAG AA with white chip text (warning 3.1:1, info 3.9:1); these pass (5.0, 4.8).
+        warning: { main: '#b45309' },
+        info: { main: '#0277bd' },
         background: { default: '#f6f7fb', paper: '#ffffff' },
       },
     },

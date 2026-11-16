@@ -48,8 +48,9 @@ function NameForm() {
             <TextField
               label="Email"
               value={user?.email ?? ''}
-              disabled
               helperText="Email changes are not supported yet. Contact an administrator if you need one."
+              // Read-only rather than disabled: stays focusable for screen readers and keeps readable contrast.
+              slotProps={{ htmlInput: { readOnly: true } }}
             />
             <Box>
               <Button type="submit" variant="contained" disabled={save.isPending || unchanged || !fullName.trim()}>

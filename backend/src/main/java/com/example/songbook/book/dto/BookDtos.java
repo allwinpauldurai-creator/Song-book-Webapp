@@ -21,8 +21,14 @@ public final class BookDtos {
     private BookDtos() {
     }
 
+    /**
+     * Public cover URL. Covers are served with a 24 h public cache, so the URL carries the cover's
+     * file-asset id ({@code ?v=}): replacing a cover creates a new asset and therefore a new URL,
+     * and browsers/CDNs fetch the new image immediately. The endpoint ignores the parameter.
+     */
     static String coverUrlOf(Book b) {
-        return b.getCoverAsset() == null ? null : "/api/v1/books/" + b.getId() + "/cover";
+        return b.getCoverAsset() == null ? null
+                : "/api/v1/books/" + b.getId() + "/cover?v=" + b.getCoverAsset().getId();
     }
 
     static CategoryResponse categoryOf(Book b) {
