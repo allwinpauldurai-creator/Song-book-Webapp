@@ -21,6 +21,8 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import PersonIcon from '@mui/icons-material/Person';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useAuth } from '../contexts/AuthContext';
 import { loginPath } from '../utils/redirect';
 
@@ -97,6 +99,18 @@ function UserMenu() {
             <DashboardIcon fontSize="small" />
           </ListItemIcon>
           My dashboard
+        </MenuItem>
+        <MenuItem onClick={() => go('/me/profile')}>
+          <ListItemIcon>
+            <PersonIcon fontSize="small" />
+          </ListItemIcon>
+          Profile
+        </MenuItem>
+        <MenuItem onClick={() => go('/me/requests')}>
+          <ListItemIcon>
+            <RateReviewIcon fontSize="small" />
+          </ListItemIcon>
+          My requests
         </MenuItem>
         {isAdmin && (
           <MenuItem onClick={() => go('/admin')}>

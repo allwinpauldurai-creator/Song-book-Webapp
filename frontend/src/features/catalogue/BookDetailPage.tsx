@@ -152,6 +152,14 @@ export default function BookDetailPage() {
 
               <Typography variant="body2" color="text.secondary" sx={{ mt: 4 }}>
                 Last updated {formatDate(b.updatedAt)}
+                {user && (
+                  <>
+                    {' · '}
+                    <Link component={RouterLink} to={`/me/requests?new=1&bookId=${b.id}`}>
+                      Suggest a correction
+                    </Link>
+                  </>
+                )}
               </Typography>
             </>
           )}

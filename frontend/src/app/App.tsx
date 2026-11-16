@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import Layout from '../layouts/MainLayout';
 import { FullPageSpinner, RequireAdmin, RequireAuth } from '../routes/guards';
@@ -10,13 +10,25 @@ import RegisterPage from '../features/auth/RegisterPage';
 import VerifyEmailPage from '../features/auth/VerifyEmailPage';
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/ResetPasswordPage';
-import MePage from '../features/member/MePage';
 import { ComingSoonPage, NotFoundPage } from '../components/StatusPages';
 
-// Code-split: PDF.js is large and only members opening a book need it.
+// Code-split: guests only download the public pages. Member pages (and PDF.js for the reader)
+// load on first visit to those routes.
+const MePage = lazy(() => import('../features/member/MePage'));
+const ProfilePage = lazy(() => import('../features/member/ProfilePage'));
+const RequestsPage = lazy(() => import('../features/member/RequestsPage'));
 const ReaderPage = lazy(() => import('../features/reader/ReaderPage'));
 
-// Routes follow docs/UI_FLOWS.md. Member/admin pages not built yet render a placeholder.
+/** Signed-in route with a lazily loaded page. */
+function Member({ children }: { children: ReactNode }) {
+  return (
+    <RequireAuth>
+      <Suspense fallback={<FullPageSpinner />}>{children}</Suspense>
+    </RequireAuth>
+  );
+}
+
+// Routes follow docs/UI_FLOWS.md. Admin pages are not built yet and render a placeholder.
 export default function App() {
   return (
     <BrowserRouter>
@@ -32,19 +44,10 @@ export default function App() {
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="reset-password" element={<ResetPasswordPage />} />
 
-          <Route path="me" element={<RequireAuth><MePage /></RequireAuth>} />
-          <Route path="me/profile" element={<RequireAuth><ComingSoonPage title="Profile" /></RequireAuth>} />
-          <Route path="me/requests" element={<RequireAuth><ComingSoonPage title="My requests" /></RequireAuth>} />
-          <Route
-            path="read/:id"
-            element={
-              <RequireAuth>
-                <Suspense fallback={<FullPageSpinner />}>
-                  <ReaderPage />
-                </Suspense>
-              </RequireAuth>
-            }
-          />
+          <Route path="me" element={<Member><MePage /></Member>} />
+          <Route path="me/profile" element={<Member><ProfilePage /></Member>} />
+          <Route path="me/requests" element={<Member><RequestsPage /></Member>} />
+          <Route path="read/:id" element={<Member><ReaderPage /></Member>} />
 
           <Route path="admin/*" element={<RequireAdmin><ComingSoonPage title="Admin" /></RequireAdmin>} />
 

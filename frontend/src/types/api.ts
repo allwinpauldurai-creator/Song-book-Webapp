@@ -96,3 +96,30 @@ export interface ReadingProgress {
   versionId: string;
   updatedAt: string;
 }
+
+export interface HistoryItem {
+  bookId: string;
+  title: string;
+  coverUrl?: string | null;
+  lastPage: number;
+  updatedAt: string;
+}
+
+export type RequestType = 'CORRECTION' | 'ADDITION' | 'OTHER';
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ModificationRequest {
+  id: string;
+  requestedBy: string;
+  requesterName: string;
+  bookId?: string | null;
+  bookTitle?: string | null;
+  requestType: RequestType;
+  description: string;
+  status: RequestStatus;
+  reviewNote?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  version: number;
+}

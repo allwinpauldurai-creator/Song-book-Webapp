@@ -1,9 +1,33 @@
+import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { useMutation } from '@tanstack/react-query';
-import { Alert, Box, Button, Card, CardContent, Chip, Container, Stack, Typography } from '@mui/material';
-import { authApi } from '../../services/api/endpoints';
-import type { MembershipSummary } from '../../types/api';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardActionArea,
+  CardContent,
+  Chip,
+  Container,
+  Link,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Pagination,
+  Skeleton,
+  Stack,
+  Typography,
+} from '@mui/material';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import PersonIcon from '@mui/icons-material/Person';
+import RateReviewIcon from '@mui/icons-material/RateReview';
+import { authApi, memberApi, queryKeys } from '../../services/api/endpoints';
+import type { HistoryItem, MembershipSummary } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { Cover, ErrorAlert } from '../../components/common';
 import { formatDate } from '../../utils/format';
 
 function MembershipCard({ membership, isAdmin }: { membership?: MembershipSummary | null; isAdmin: boolean }) {
@@ -36,11 +60,97 @@ function MembershipCard({ membership, isAdmin }: { membership?: MembershipSummar
   );
 }
 
-/** Minimal member dashboard; continue-reading and history arrive with the reader phase. */
+const HISTORY_SIZE = 5;
+
+function ContinueReading({ item }: { item: HistoryItem }) {
+  return (
+    <Card>
+      <CardActionArea component={RouterLink} to={`/read/${item.bookId}`} sx={{ display: 'flex', alignItems: 'stretch', justifyContent: 'flex-start' }}>
+        <Box sx={{ width: 96, flexShrink: 0 }}>
+          <Cover url={item.coverUrl} title={item.title} />
+        </Box>
+        <CardContent sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Typography variant="overline" color="text.secondary">
+            Continue reading
+          </Typography>
+          <Typography variant="h3" component="p" noWrap title={item.title}>
+            {item.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Page {item.lastPage} · {formatDate(item.updatedAt)}
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mt: 1, color: 'primary.main' }}>
+            <MenuBookIcon fontSize="small" />
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Resume
+            </Typography>
+          </Stack>
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  );
+}
+
+function ReadingHistory({ canRead }: { canRead: boolean }) {
+  const [page, setPage] = useState(1);
+  const history = useQuery({
+    queryKey: queryKeys.history(page - 1, HISTORY_SIZE),
+    queryFn: () => memberApi.history(page - 1, HISTORY_SIZE),
+    placeholderData: keepPreviousData,
+    staleTime: 0, // the reader saves progress; always show the latest on return
+  });
+
+  if (history.isError) return <ErrorAlert error={history.error} onRetry={() => history.refetch()} />;
+  if (history.isPending) return <Skeleton variant="rounded" height={140} />;
+
+  const items = history.data.content;
+  const latest = page === 1 ? items[0] : undefined;
+  return (
+    <Stack spacing={2}>
+      {latest && canRead && <ContinueReading item={latest} />}
+      <Card>
+        <CardContent>
+          <Typography variant="h3" component="h2" sx={{ mb: 1 }}>
+            Reading history
+          </Typography>
+          {items.length === 0 ? (
+            <Typography color="text.secondary">
+              Books you open will appear here. <Link component={RouterLink} to="/books">Browse the catalogue</Link>
+            </Typography>
+          ) : (
+            <List disablePadding sx={{ opacity: history.isPlaceholderData ? 0.6 : 1 }}>
+              {items.map((h, i) => (
+                <ListItem key={h.bookId} disablePadding divider={i < items.length - 1}>
+                  <ListItemButton component={RouterLink} to={canRead ? `/read/${h.bookId}` : `/books/${h.bookId}`} sx={{ px: 1 }}>
+                    <Box sx={{ width: 36, mr: 1.5, flexShrink: 0, borderRadius: 0.5, overflow: 'hidden' }}>
+                      <Cover url={h.coverUrl} title={h.title} />
+                    </Box>
+                    <ListItemText
+                      primary={h.title}
+                      secondary={`Page ${h.lastPage} · ${formatDate(h.updatedAt)}`}
+                      slotProps={{ primary: { noWrap: true } }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+          {history.data.totalPages > 1 && (
+            <Stack sx={{ alignItems: 'center', mt: 1 }}>
+              <Pagination size="small" count={history.data.totalPages} page={page} onChange={(_, p) => setPage(p)} />
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+}
+
 export default function MePage() {
   const { user, isAdmin } = useAuth();
   const resend = useMutation({ mutationFn: () => authApi.resendVerification(user!.email) });
   if (!user) return null;
+  const canRead = user.emailVerified && (isAdmin || !!user.membership?.valid);
 
   return (
     <Container maxWidth="md" sx={{ py: 4, px: 2 }}>
@@ -81,11 +191,18 @@ export default function MePage() {
             </CardContent>
           </Card>
         </Box>
-        <Box>
-          <Button component={RouterLink} to="/books" variant="contained">
+        <ReadingHistory canRead={canRead} />
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+          <Button component={RouterLink} to="/books" variant="contained" startIcon={<LibraryBooksIcon />}>
             Browse the catalogue
           </Button>
-        </Box>
+          <Button component={RouterLink} to="/me/profile" variant="outlined" startIcon={<PersonIcon />}>
+            Profile
+          </Button>
+          <Button component={RouterLink} to="/me/requests" variant="outlined" startIcon={<RateReviewIcon />}>
+            My requests
+          </Button>
+        </Stack>
       </Stack>
     </Container>
   );

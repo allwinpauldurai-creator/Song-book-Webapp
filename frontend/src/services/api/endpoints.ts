@@ -1,7 +1,10 @@
 import { api, ApiError } from './client';
 import type {
   AccessTicket,
+  HistoryItem,
+  ModificationRequest,
   ReadingProgress,
+  RequestType,
   BookDetail,
   BookSummary,
   Category,
@@ -31,6 +34,20 @@ export const authApi = {
 
 export const usersApi = {
   me: () => api<Me>('/users/me'),
+  updateProfile: (fullName: string) => api<Me>('/users/me', { method: 'PUT', body: { fullName } }),
+  /** Revokes every session of the user on success (the caller should log out). */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api<void>('/users/me/password', { method: 'PUT', body: { currentPassword, newPassword } }),
+};
+
+// ---------------------------------------------------------------- member area
+
+export const memberApi = {
+  history: (page = 0, size = 10) => api<PageResponse<HistoryItem>>('/members/progress', { query: { page, size } }),
+  requests: (page = 0, size = 10) =>
+    api<PageResponse<ModificationRequest>>('/members/modification-requests', { query: { page, size } }),
+  createRequest: (body: { bookId?: string | null; requestType: RequestType; description: string }) =>
+    api<ModificationRequest>('/modification-requests', { method: 'POST', body }),
 };
 
 // ---------------------------------------------------------------- catalogue (public)
@@ -77,4 +94,6 @@ export const queryKeys = {
   categories: ['categories'] as const,
   books: (q: BookQuery) => ['books', q] as const,
   book: (id: string) => ['book', id] as const,
+  history: (page: number, size: number) => ['member', 'history', page, size] as const,
+  requests: (page: number) => ['member', 'requests', page] as const,
 };

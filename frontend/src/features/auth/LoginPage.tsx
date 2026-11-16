@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link as RouterLink, useSearchParams } from 'react-router';
+import { Link as RouterLink, useLocation, useSearchParams } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
 import { ApiError, errorMessage } from '../../services/api/client';
@@ -20,6 +20,8 @@ const MESSAGES: Record<string, string> = {
 export default function LoginPage() {
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'), '/me');
+  // e.g. "Your password was changed…", passed in navigation state (never in the URL).
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +43,7 @@ export default function LoginPage() {
       <AuthCard title="Log in" subtitle="Members can read and download every song book.">
         <Box component="form" onSubmit={onSubmit} noValidate>
           <Stack spacing={2}>
+            {notice && !err && <Alert severity="success">{notice}</Alert>}
             {err && (
               <Alert
                 severity="error"
