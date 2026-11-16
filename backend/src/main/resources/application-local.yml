@@ -1,0 +1,22 @@
+# Local development profile. Matches docker-compose.yml in the repository root.
+# These credentials are for a throwaway local container only - never reuse them elsewhere.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/songbook}
+    username: ${DB_USERNAME:songbook}
+    password: ${DB_PASSWORD:songbook_local}
+
+songbook:
+  cors:
+    allowed-origins: ${SONGBOOK_CORS_ORIGINS:http://localhost:5173}
+  storage:
+    provider: local
+  security:
+    # Random JWT/ticket keys are generated at startup when not set (tokens die on restart).
+    allow-generated-secrets: true
+    # Local runs over plain http; production always uses Secure cookies.
+    refresh-cookie-secure: false
+
+logging:
+  level:
+    com.example.songbook: DEBUG
