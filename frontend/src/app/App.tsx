@@ -10,7 +10,7 @@ import RegisterPage from '../features/auth/RegisterPage';
 import VerifyEmailPage from '../features/auth/VerifyEmailPage';
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/ResetPasswordPage';
-import { ComingSoonPage, NotFoundPage } from '../components/StatusPages';
+import { NotFoundPage } from '../components/StatusPages';
 
 // Code-split: guests only download the public pages. Member pages (and PDF.js for the reader)
 // load on first visit to those routes.
@@ -18,6 +18,7 @@ const MePage = lazy(() => import('../features/member/MePage'));
 const ProfilePage = lazy(() => import('../features/member/ProfilePage'));
 const RequestsPage = lazy(() => import('../features/member/RequestsPage'));
 const ReaderPage = lazy(() => import('../features/reader/ReaderPage'));
+const AdminRoutes = lazy(() => import('../features/admin/AdminRoutes'));
 
 /** Signed-in route with a lazily loaded page. */
 function Member({ children }: { children: ReactNode }) {
@@ -28,7 +29,7 @@ function Member({ children }: { children: ReactNode }) {
   );
 }
 
-// Routes follow docs/UI_FLOWS.md. Admin pages are not built yet and render a placeholder.
+// Routes follow docs/UI_FLOWS.md. Route guards are UX only; the API enforces every permission.
 export default function App() {
   return (
     <BrowserRouter>
@@ -49,7 +50,16 @@ export default function App() {
           <Route path="me/requests" element={<Member><RequestsPage /></Member>} />
           <Route path="read/:id" element={<Member><ReaderPage /></Member>} />
 
-          <Route path="admin/*" element={<RequireAdmin><ComingSoonPage title="Admin" /></RequireAdmin>} />
+          <Route
+            path="admin/*"
+            element={
+              <RequireAdmin>
+                <Suspense fallback={<FullPageSpinner />}>
+                  <AdminRoutes />
+                </Suspense>
+              </RequireAdmin>
+            }
+          />
 
           <Route path="*" element={<NotFoundPage />} />
         </Route>

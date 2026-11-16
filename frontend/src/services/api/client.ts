@@ -170,3 +170,90 @@ export function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   return 'Something went wrong. Please try again.';
 }
+
+// ---------------------------------------------------------------- uploads and authenticated downloads
+
+export interface UploadOptions {
+  method?: 'POST' | 'PUT';
+  query?: RequestOptions['query'];
+  /** Upload progress, 0..1. */
+  onProgress?: (fraction: number) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Sends multipart/form-data with the bearer token. Uses XMLHttpRequest because fetch cannot report
+ * upload progress (PDFs may be up to 100 MB). Refreshes the access token and retries once on 401,
+ * like {@link api}.
+ */
+export async function upload<T>(path: string, form: FormData, options: UploadOptions = {}): Promise<T> {
+  let res = await xhrSend(path, form, options);
+  if (res.status === 401) {
+    const token = await refreshAccessToken();
+    if (!token) {
+      sessionListeners.forEach((l) => l());
+    } else {
+      res = await xhrSend(path, form, options);
+    }
+  }
+  const body = res.text ? safeJson(res.text) : undefined;
+  if (res.status < 200 || res.status >= 300) {
+    const err = (body ?? {}) as Partial<ApiErrorBody>;
+    throw new ApiError({ ...err, status: res.status, code: err.code ?? `HTTP_${res.status}` });
+  }
+  return body as T;
+}
+
+function xhrSend(path: string, form: FormData, options: UploadOptions): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method ?? 'POST', apiUrl(API_PREFIX + path + toQueryString(options.query)));
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Accept', 'application/json');
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    if (options.onProgress) {
+      const report = options.onProgress;
+      xhr.upload.onprogress = (e) => e.lengthComputable && report(e.loaded / e.total);
+    }
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => reject(new ApiError({ status: 0, code: 'NETWORK_ERROR' }));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    options.signal?.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(form);
+  });
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Downloads a file from an endpoint that needs the bearer token (so a plain link cannot be used),
+ * then saves it under the server-provided file name.
+ */
+export async function downloadAuthenticated(path: string, fallbackName: string): Promise<void> {
+  const call = () =>
+    fetch(apiUrl(API_PREFIX + path), {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      credentials: 'include',
+    });
+  let res = await call();
+  if (res.status === 401 && (await refreshAccessToken())) res = await call();
+  if (!res.ok) throw await toApiError(res);
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+}

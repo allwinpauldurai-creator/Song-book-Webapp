@@ -14,11 +14,3 @@ export function NotFoundPage() {
   );
 }
 
-/** Placeholder for routes planned in docs/UI_FLOWS.md that are not built yet. */
-export function ComingSoonPage({ title }: { title: string }) {
-  return (
-    <Container maxWidth="sm" sx={{ py: 6, px: 2 }}>
-      <EmptyState title={title}>This page is coming in the next frontend phase.</EmptyState>
-    </Container>
-  );
-}
