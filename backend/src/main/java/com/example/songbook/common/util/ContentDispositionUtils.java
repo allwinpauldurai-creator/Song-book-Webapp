@@ -21,8 +21,17 @@ public final class ContentDispositionUtils {
         return cleaned.length() > 100 ? cleaned.substring(0, 100) : cleaned;
     }
 
+    /**
+     * Builds the header with a plain quoted {@code filename}. Callers pass names from
+     * {@link #safeBaseName}, which are pure ASCII, so no RFC 5987 {@code filename*} is needed.
+     * (Passing a charset made Spring RFC 2047-encode even ASCII names, e.g.
+     * {@code filename="=?UTF-8?Q?Book.pdf?="}, which non-browser clients save verbatim.)
+     */
     public static ContentDisposition build(boolean attachment, String fileName) {
         ContentDisposition.Builder builder = attachment ? ContentDisposition.attachment() : ContentDisposition.inline();
-        return builder.filename(fileName, StandardCharsets.UTF_8).build();
+        if (!StandardCharsets.US_ASCII.newEncoder().canEncode(fileName)) {
+            return builder.filename(fileName, StandardCharsets.UTF_8).build();
+        }
+        return builder.filename(fileName).build();
     }
 }

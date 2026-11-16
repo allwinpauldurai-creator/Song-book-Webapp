@@ -89,3 +89,10 @@ export interface AccessTicket {
   /** Relative API path including the ticket, e.g. /api/v1/books/{id}/content?ticket=… */
   contentUrl: string;
 }
+
+export interface ReadingProgress {
+  bookId: string;
+  lastPage: number;
+  versionId: string;
+  updatedAt: string;
+}

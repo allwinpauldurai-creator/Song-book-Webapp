@@ -1,6 +1,7 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import Layout from '../layouts/MainLayout';
-import { RequireAdmin, RequireAuth } from '../routes/guards';
+import { FullPageSpinner, RequireAdmin, RequireAuth } from '../routes/guards';
 import LandingPage from '../features/catalogue/LandingPage';
 import CataloguePage from '../features/catalogue/CataloguePage';
 import BookDetailPage from '../features/catalogue/BookDetailPage';
@@ -11,6 +12,9 @@ import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 import ResetPasswordPage from '../features/auth/ResetPasswordPage';
 import MePage from '../features/member/MePage';
 import { ComingSoonPage, NotFoundPage } from '../components/StatusPages';
+
+// Code-split: PDF.js is large and only members opening a book need it.
+const ReaderPage = lazy(() => import('../features/reader/ReaderPage'));
 
 // Routes follow docs/UI_FLOWS.md. Member/admin pages not built yet render a placeholder.
 export default function App() {
@@ -31,7 +35,16 @@ export default function App() {
           <Route path="me" element={<RequireAuth><MePage /></RequireAuth>} />
           <Route path="me/profile" element={<RequireAuth><ComingSoonPage title="Profile" /></RequireAuth>} />
           <Route path="me/requests" element={<RequireAuth><ComingSoonPage title="My requests" /></RequireAuth>} />
-          <Route path="read/:id" element={<RequireAuth><ComingSoonPage title="Reader" /></RequireAuth>} />
+          <Route
+            path="read/:id"
+            element={
+              <RequireAuth>
+                <Suspense fallback={<FullPageSpinner />}>
+                  <ReaderPage />
+                </Suspense>
+              </RequireAuth>
+            }
+          />
 
           <Route path="admin/*" element={<RequireAdmin><ComingSoonPage title="Admin" /></RequireAdmin>} />
 

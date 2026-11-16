@@ -1,6 +1,7 @@
-import { api } from './client';
+import { api, ApiError } from './client';
 import type {
   AccessTicket,
+  ReadingProgress,
   BookDetail,
   BookSummary,
   Category,
@@ -56,6 +57,17 @@ export const catalogueApi = {
 export const readerApi = {
   downloadAccess: (bookId: string) => api<AccessTicket>(`/books/${encodeURIComponent(bookId)}/download-access`),
   readAccess: (bookId: string) => api<AccessTicket>(`/books/${encodeURIComponent(bookId)}/read-access`),
+  /** Last page read, or null when the member has not opened this book yet (404). */
+  progress: async (bookId: string): Promise<ReadingProgress | null> => {
+    try {
+      return await api<ReadingProgress>(`/members/books/${encodeURIComponent(bookId)}/progress`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  },
+  saveProgress: (bookId: string, lastPage: number) =>
+    api<ReadingProgress>(`/members/books/${encodeURIComponent(bookId)}/progress`, { method: 'PUT', body: { lastPage } }),
 };
 
 // ---------------------------------------------------------------- query keys

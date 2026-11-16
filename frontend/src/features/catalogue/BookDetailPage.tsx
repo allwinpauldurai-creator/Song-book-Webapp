@@ -4,8 +4,9 @@ import { Alert, Box, Breadcrumbs, Button, Chip, Container, Link, Skeleton, Stack
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { ApiError, apiUrl } from '../../services/api/client';
-import { authApi, catalogueApi, queryKeys, readerApi } from '../../services/api/endpoints';
+import { ApiError } from '../../services/api/client';
+import { authApi, catalogueApi, queryKeys } from '../../services/api/endpoints';
+import { usePdfDownload } from '../reader/usePdfDownload';
 import type { Me } from '../../types/api';
 import { Cover, EmptyState, ErrorAlert } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,18 +33,7 @@ export default function BookDetailPage() {
   const { status, user, isAdmin } = useAuth();
   const book = useQuery({ queryKey: queryKeys.book(id), queryFn: () => catalogueApi.book(id), retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
 
-  const download = useMutation({
-    mutationFn: () => readerApi.downloadAccess(id),
-    onSuccess: (grant) => {
-      // The content endpoint answers with Content-Disposition: attachment, so the page stays put.
-      const a = document.createElement('a');
-      a.href = apiUrl(grant.contentUrl);
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    },
-  });
+  const download = usePdfDownload(id);
   const resend = useMutation({ mutationFn: () => authApi.resendVerification(user!.email) });
 
   if (book.isError) {
