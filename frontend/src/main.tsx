@@ -2,10 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { ApiError } from './api/client';
-import { AuthProvider } from './auth/AuthContext';
-import { theme } from './theme';
-import App from './App';
+import { ApiError } from './services/api/client';
+import { AuthProvider } from './contexts/AuthContext';
+import { theme } from './theme/theme';
+import App from './app/App';
 
 const queryClient = new QueryClient({
   defaultOptions: {

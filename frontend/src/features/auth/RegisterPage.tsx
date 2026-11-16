@@ -3,11 +3,11 @@ import { Link as RouterLink } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
 import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
-import { ApiError, errorMessage } from '../../api/client';
-import { authApi } from '../../api/endpoints';
-import { RedirectIfAuthenticated } from '../../auth/guards';
+import { ApiError, errorMessage } from '../../services/api/client';
+import { authApi } from '../../services/api/endpoints';
+import { RedirectIfAuthenticated } from '../../routes/guards';
 import { AuthCard } from '../../components/common';
-import PasswordField, { passwordProblem } from '../../components/PasswordField';
+import PasswordField, { passwordProblem } from './PasswordField';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');

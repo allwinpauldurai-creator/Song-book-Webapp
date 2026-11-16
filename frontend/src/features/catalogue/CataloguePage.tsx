@@ -14,9 +14,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { catalogueApi, queryKeys, type BookQuery, type BookSort } from '../api/endpoints';
-import BookCard, { BookCardSkeleton, bookGridSx } from '../components/BookCard';
-import { EmptyState, ErrorAlert } from '../components/common';
+import { catalogueApi, queryKeys, type BookQuery, type BookSort } from '../../services/api/endpoints';
+import BookCard, { BookCardSkeleton, bookGridSx } from './BookCard';
+import { EmptyState, ErrorAlert } from '../../components/common';
 
 const PAGE_SIZE = 20;
 const SORTS: { value: BookSort; label: string }[] = [

@@ -2,11 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, Typography } from '@mui/material';
-import { ApiError, errorMessage } from '../../api/client';
-import { authApi } from '../../api/endpoints';
-import { useAuth } from '../../auth/AuthContext';
+import { ApiError, errorMessage } from '../../services/api/client';
+import { authApi } from '../../services/api/endpoints';
+import { useAuth } from '../../contexts/AuthContext';
 import { AuthCard } from '../../components/common';
-import PasswordField, { passwordProblem } from '../../components/PasswordField';
+import PasswordField, { passwordProblem } from './PasswordField';
 import { useTokenFromUrl } from './useTokenFromUrl';
 
 export default function ResetPasswordPage() {

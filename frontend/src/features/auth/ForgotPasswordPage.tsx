@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
-import { errorMessage } from '../../api/client';
-import { authApi } from '../../api/endpoints';
+import { errorMessage } from '../../services/api/client';
+import { authApi } from '../../services/api/endpoints';
 import { AuthCard } from '../../components/common';
 
 export default function ForgotPasswordPage() {

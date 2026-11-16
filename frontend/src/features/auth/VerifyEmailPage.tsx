@@ -3,8 +3,8 @@ import { Link as RouterLink } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined';
-import { authApi } from '../../api/endpoints';
-import { useAuth } from '../../auth/AuthContext';
+import { authApi } from '../../services/api/endpoints';
+import { useAuth } from '../../contexts/AuthContext';
 import { AuthCard } from '../../components/common';
 import { useTokenFromUrl } from './useTokenFromUrl';
 

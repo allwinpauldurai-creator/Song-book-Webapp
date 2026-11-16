@@ -2,13 +2,13 @@ import { useState, type FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
-import { ApiError, errorMessage } from '../../api/client';
-import { authApi } from '../../api/endpoints';
-import { useAuth } from '../../auth/AuthContext';
-import { RedirectIfAuthenticated } from '../../auth/guards';
-import { safeNext } from '../../auth/redirect';
+import { ApiError, errorMessage } from '../../services/api/client';
+import { authApi } from '../../services/api/endpoints';
+import { useAuth } from '../../contexts/AuthContext';
+import { RedirectIfAuthenticated } from '../../routes/guards';
+import { safeNext } from '../../utils/redirect';
 import { AuthCard } from '../../components/common';
-import PasswordField from '../../components/PasswordField';
+import PasswordField from './PasswordField';
 
 const MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Email or password is incorrect.',

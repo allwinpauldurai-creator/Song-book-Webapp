@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Alert, Box, Button, Paper, Typography } from '@mui/material';
 import LibraryMusicOutlinedIcon from '@mui/icons-material/LibraryMusicOutlined';
-import { apiUrl, errorMessage } from '../api/client';
+import { apiUrl, errorMessage } from '../services/api/client';
 
 export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   return (

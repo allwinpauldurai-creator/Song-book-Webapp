@@ -1,7 +1,7 @@
 import { Link as RouterLink } from 'react-router';
 import { Box, Card, CardActionArea, CardContent, Skeleton, Typography } from '@mui/material';
-import type { BookSummary } from '../api/types';
-import { Cover } from './common';
+import type { BookSummary } from '../../types/api';
+import { Cover } from '../../components/common';
 
 export const bookGridSx = {
   display: 'grid',

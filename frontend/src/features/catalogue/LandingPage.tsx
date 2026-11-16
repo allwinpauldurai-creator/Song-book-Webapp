@@ -3,10 +3,10 @@ import { Link as RouterLink, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Box, Button, Container, InputAdornment, Stack, TextField, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import { catalogueApi, queryKeys, type BookQuery } from '../api/endpoints';
-import BookCard, { BookCardSkeleton, bookGridSx } from '../components/BookCard';
-import { EmptyState, ErrorAlert } from '../components/common';
-import { useAuth } from '../auth/AuthContext';
+import { catalogueApi, queryKeys, type BookQuery } from '../../services/api/endpoints';
+import BookCard, { BookCardSkeleton, bookGridSx } from './BookCard';
+import { EmptyState, ErrorAlert } from '../../components/common';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LATEST: BookQuery = { page: 0, size: 8, sort: 'updatedAt,desc' };
 

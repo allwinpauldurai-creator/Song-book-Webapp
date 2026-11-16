@@ -4,13 +4,13 @@ import { Alert, Box, Breadcrumbs, Button, Chip, Container, Link, Skeleton, Stack
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { ApiError, apiUrl } from '../api/client';
-import { authApi, catalogueApi, queryKeys, readerApi } from '../api/endpoints';
-import type { Me } from '../api/types';
-import { Cover, EmptyState, ErrorAlert } from '../components/common';
-import { useAuth } from '../auth/AuthContext';
-import { loginPath } from '../auth/redirect';
-import { formatDate } from '../format';
+import { ApiError, apiUrl } from '../../services/api/client';
+import { authApi, catalogueApi, queryKeys, readerApi } from '../../services/api/endpoints';
+import type { Me } from '../../types/api';
+import { Cover, EmptyState, ErrorAlert } from '../../components/common';
+import { useAuth } from '../../contexts/AuthContext';
+import { loginPath } from '../../utils/redirect';
+import { formatDate } from '../../utils/format';
 
 /** Why a signed-in user cannot read yet, mirroring the backend eligibility rule (docs/SECURITY.md §4). */
 function ineligibility(user: Me, isAdmin: boolean): 'unverified' | 'membership' | null {

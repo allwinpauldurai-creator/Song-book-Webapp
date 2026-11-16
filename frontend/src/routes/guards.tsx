@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { Box, CircularProgress } from '@mui/material';
-import { useAuth } from './AuthContext';
-import { loginPath } from './redirect';
-import ForbiddenPage from '../pages/ForbiddenPage';
+import { useAuth } from '../contexts/AuthContext';
+import { loginPath } from '../utils/redirect';
+import ForbiddenPage from '../components/ForbiddenPage';
 
 // Route guards are UX only: the API enforces every permission (docs/UI_FLOWS.md).
 

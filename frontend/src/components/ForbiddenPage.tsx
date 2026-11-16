@@ -1,6 +1,6 @@
 import { Link as RouterLink } from 'react-router';
 import { Button, Container } from '@mui/material';
-import { EmptyState } from '../components/common';
+import { EmptyState } from './common';
 
 export default function ForbiddenPage() {
   return (

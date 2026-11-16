@@ -8,7 +8,7 @@ import type {
   Me,
   MessageResponse,
   PageResponse,
-} from './types';
+} from '../../types/api';
 
 // ---------------------------------------------------------------- auth (public)
 

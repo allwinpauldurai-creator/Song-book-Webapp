@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { onSessionExpired, refreshAccessToken, setAccessToken } from '../api/client';
-import { authApi, usersApi } from '../api/endpoints';
-import type { Me } from '../api/types';
+import { onSessionExpired, refreshAccessToken, setAccessToken } from '../services/api/client';
+import { authApi, usersApi } from '../services/api/endpoints';
+import type { Me } from '../types/api';
 
 type Status = 'loading' | 'authenticated' | 'anonymous';
 

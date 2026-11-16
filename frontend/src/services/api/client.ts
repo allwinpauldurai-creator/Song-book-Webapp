@@ -1,4 +1,4 @@
-import type { AccessTokenResponse, ApiErrorBody, FieldError } from './types';
+import type { AccessTokenResponse, ApiErrorBody, FieldError } from '../../types/api';
 
 /**
  * Thin fetch wrapper for the Song Book API.

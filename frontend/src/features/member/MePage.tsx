@@ -1,10 +1,10 @@
 import { Link as RouterLink } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Card, CardContent, Chip, Container, Stack, Typography } from '@mui/material';
-import { authApi } from '../api/endpoints';
-import type { MembershipSummary } from '../api/types';
-import { useAuth } from '../auth/AuthContext';
-import { formatDate } from '../format';
+import { authApi } from '../../services/api/endpoints';
+import type { MembershipSummary } from '../../types/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatDate } from '../../utils/format';
 
 function MembershipCard({ membership, isAdmin }: { membership?: MembershipSummary | null; isAdmin: boolean }) {
   return (

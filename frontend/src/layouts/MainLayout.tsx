@@ -21,8 +21,8 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import { useAuth } from '../auth/AuthContext';
-import { loginPath } from '../auth/redirect';
+import { useAuth } from '../contexts/AuthContext';
+import { loginPath } from '../utils/redirect';
 
 function HeaderSearch() {
   const navigate = useNavigate();

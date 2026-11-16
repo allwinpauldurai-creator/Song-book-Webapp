@@ -1,16 +1,16 @@
 import { BrowserRouter, Route, Routes } from 'react-router';
-import Layout from './components/Layout';
-import { RequireAdmin, RequireAuth } from './auth/guards';
-import LandingPage from './pages/LandingPage';
-import CataloguePage from './pages/CataloguePage';
-import BookDetailPage from './pages/BookDetailPage';
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import VerifyEmailPage from './pages/auth/VerifyEmailPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-import MePage from './pages/MePage';
-import { ComingSoonPage, NotFoundPage } from './pages/StatusPages';
+import Layout from '../layouts/MainLayout';
+import { RequireAdmin, RequireAuth } from '../routes/guards';
+import LandingPage from '../features/catalogue/LandingPage';
+import CataloguePage from '../features/catalogue/CataloguePage';
+import BookDetailPage from '../features/catalogue/BookDetailPage';
+import LoginPage from '../features/auth/LoginPage';
+import RegisterPage from '../features/auth/RegisterPage';
+import VerifyEmailPage from '../features/auth/VerifyEmailPage';
+import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
+import ResetPasswordPage from '../features/auth/ResetPasswordPage';
+import MePage from '../features/member/MePage';
+import { ComingSoonPage, NotFoundPage } from '../components/StatusPages';
 
 // Routes follow docs/UI_FLOWS.md. Member/admin pages not built yet render a placeholder.
 export default function App() {
