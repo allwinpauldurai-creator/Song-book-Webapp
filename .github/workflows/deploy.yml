@@ -75,13 +75,9 @@ jobs:
         run: |
           az webapp deploy --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \
             --src-path app.jar --type jar --restart true --track-status true
-      - name: Wait for API readiness
+      - name: Wait for API readiness (actuator JSON, not the App Service parking page)
         run: |
-          for i in $(seq 1 60); do
-            curl -sf "${{ vars.API_ORIGIN }}/actuator/health/readiness" && exit 0
-            sleep 10
-          done
-          echo "API not ready"; exit 1
+          bash scripts/wait-for-api.sh "${{ vars.API_ORIGIN }}" "${{ vars.AZURE_RESOURCE_GROUP }}" "${{ vars.WEBAPP_NAME }}"
       - name: Deploy SPA (short-lived deployment token fetched with the OIDC login)
         id: swa-token
         run: |
@@ -133,14 +129,10 @@ jobs:
         run: |
           az webapp deploy --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \
             --slot staging --src-path app.jar --type jar --restart true --track-status true
-      - name: Wait for staging readiness
+      - name: Wait for staging readiness (actuator JSON, not the App Service parking page)
         run: |
           host=$(az webapp show --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" --slot staging --query defaultHostName -o tsv)
-          for i in $(seq 1 60); do
-            curl -sf "https://$host/actuator/health/readiness" && exit 0
-            sleep 10
-          done
-          echo "Staging slot not ready"; exit 1
+          bash scripts/wait-for-api.sh "https://$host" "${{ vars.AZURE_RESOURCE_GROUP }}" "${{ vars.WEBAPP_NAME }}" staging
       - name: Swap staging -> production
         run: |
           az webapp deployment slot swap --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \

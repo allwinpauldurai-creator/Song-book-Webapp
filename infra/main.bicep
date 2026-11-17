@@ -12,6 +12,10 @@ param environmentName string
 
 param location string = resourceGroup().location
 
+@description('Static Web Apps is offered in a few regions only; content is served from a global edge network either way.')
+@allowed(['centralus', 'eastus2', 'westus2', 'westeurope', 'eastasia'])
+param staticSiteLocation string = 'eastasia'
+
 @description('Short lowercase name used in resource names, e.g. "songbook".')
 @minLength(3)
 @maxLength(12)
@@ -199,7 +203,7 @@ resource pdfsContainer 'Microsoft.Storage/storageAccounts/blobServices/container
 
 resource staticSite 'Microsoft.Web/staticSites@2024-04-01' = {
   name: 'swa-${suffix}'
-  location: location
+  location: staticSiteLocation
   tags: tags
   sku: { name: 'Standard', tier: 'Standard' }
   properties: {
