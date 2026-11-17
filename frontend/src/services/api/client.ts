@@ -10,7 +10,9 @@ import type { AccessTokenResponse, ApiErrorBody, FieldError } from '../../types/
  *   session family), so two parallel refresh calls must never happen.
  */
 
-export const API_BASE_URL: string = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+// Must be written exactly as import.meta.env.VITE_*: Vite substitutes that form at build time.
+// Optional chaining (import.meta.env?.X) is NOT substituted and silently yields '' in builds.
+export const API_BASE_URL: string = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
 const API_PREFIX = '/api/v1';
 
 /** Turns a backend-relative path such as "/api/v1/books/x/cover" into a full URL. */

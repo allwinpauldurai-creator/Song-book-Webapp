@@ -24,6 +24,8 @@ the build. Emails are captured in memory (`TestInfrastructure.CapturingEmailSend
 | Frontend unit | Vitest (`cd frontend && npm test`) | `client.test.ts` (token refresh), `redirect.test.ts`, `ticketedRangeLoader.test.ts` (ticket renewal, retries, version change), `usePdfSearch.test.ts` |
 | Frontend components (later) | React Testing Library, MSW | |
 | Browser E2E + accessibility | Playwright 1.65 + axe-core (`cd frontend && npm run test:e2e`; backend running and seeded once with `node scripts/seed-sample-data.mjs`) | `e2e/public.spec.ts` (guest flows, WCAG 2.1 AA light + dark, PDF.js assets), `e2e/signed-in.spec.ts` (reader, progress, download, member and admin pages + axe). One login per run (backend rate limit) |
+| Browser E2E, production build | `npm run test:e2e:prod` (same origin) and `npm run test:e2e:cross-origin` (production topology: API on another origin, no proxy, real CSP); both fail on any CSP violation | Same specs, `playwright.prod.config.ts` / `playwright.cross-origin.config.ts` |
+| Post-deployment smoke | `node scripts/smoke-test.mjs <frontend> <api>` (run by `deploy.yml`) | readiness, catalogue, headers, API docs off, CORS, CSP, SPA fallback, PDF.js wasm |
 | Performance | `node scripts/perf-load-test.mjs http://localhost:8080 20` (results in `docs/SECURITY_REVIEW.md` §4) | NFR-07 catalogue p95 < 500 ms |
 
 ## Acceptance coverage map (requirements §14)

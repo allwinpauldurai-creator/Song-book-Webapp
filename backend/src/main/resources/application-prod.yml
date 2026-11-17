@@ -10,6 +10,15 @@ spring:
       ddl-auto: validate
   flyway:
     clean-disabled: true
+  mail:
+    # Azure Communication Services SMTP relay (smtp.azurecomm.net:587) requires STARTTLS.
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 songbook:
   frontend-base-url: ${SONGBOOK_FRONTEND_URL}

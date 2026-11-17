@@ -1,51 +1,69 @@
 # Azure Deployment
 
-> No real resource IDs, domains or credentials are recorded here. Fill in the placeholders when the
-> subscription and domains are confirmed (decision D8).
+Infrastructure as code: `infra/main.bicep` (one environment per resource group) with
+`infra/env/dev.bicepparam` and `infra/env/prod.bicepparam`. Operations: `docs/RUNBOOK.md`.
+No real resource IDs, domains or credentials are recorded in the repository.
 
-## 1. Resources (per environment: `dev`, `prod`)
+## 1. Topology (decision D8: custom domains)
 
-| Resource | Name (example) | SKU guidance | Notes |
+```
+Browser ── https://songbook.example.org ──────► Static Web Apps (SPA, CSP + security headers)
+   │
+   └──── https://api.songbook.example.org ────► App Service (Spring Boot, Java 21)
+                                                   ├─ PostgreSQL Flexible Server 16
+                                                   ├─ Blob Storage (Managed Identity, no keys)
+                                                   ├─ Key Vault (secret references)
+                                                   └─ Application Insights (Java agent)
+```
+
+The SPA and API are different **origins** but the same **site** (shared registrable domain), so CORS is
+used for the API and the `SameSite=Strict` refresh cookie is still sent. On Azure's default hostnames
+(`*.azurestaticapps.net` / `*.azurewebsites.net`) the cookie would not be sent and every page reload would
+log the user out. Custom domains are therefore required for real use.
+
+## 2. Resources (`infra/main.bicep`)
+
+| Resource | dev | prod | Notes |
 |---|---|---|---|
-| Resource group | `rg-songbook-<env>` | | One per environment |
-| App Service plan (Linux) | `asp-songbook-<env>` | B1 dev / P1v3 prod | |
-| App Service | `app-songbook-api-<env>` | Java 21 SE or container | HTTPS Only, system-assigned Managed Identity, health check `/actuator/health/readiness` |
-| Static Web App | `swa-songbook-ui-<env>` | Standard (custom domain + SLA) | React build |
-| PostgreSQL Flexible Server | `pg-songbook-<env>` | Burstable B1ms dev / General Purpose prod, PG 16 | Entra auth enabled, firewall/VNet restricted, backups 7 d dev / 35 d prod, geo-redundant prod optional |
-| Storage account | `stsongbook<env>` | StorageV2, LRS/ZRS | Public blob access **disabled**, shared-key access disabled, containers `book-covers`, `book-pdfs`, soft delete + versioning on |
-| Key Vault | `kv-songbook-<env>` | Standard, RBAC mode | `jwt-secret`, `ticket-secret`, DB password (if not Entra), email connection |
-| Application Insights | `appi-songbook-<env>` | Workspace-based | Java agent auto-instrumentation |
-| Communication Services Email | `acs-songbook-<env>` | | Pending decision D4 |
+| App Service plan (Linux) | B1 | P1v3 | |
+| App Service | | + `staging` slot | Java 21, HTTPS only, TLS 1.2, FTP/basic publishing disabled, health check `/actuator/health/readiness`, system-assigned identity |
+| Static Web Apps | Standard | Standard | Custom domain, headers from `scripts/write-swa-config.mjs` |
+| PostgreSQL Flexible Server 16 | B1ms, 7-day backups | D2ds_v5, 35-day geo-redundant backups | TLS required; "Allow Azure services" firewall (private access in the backlog) |
+| Storage account | LRS | ZRS | Public blob access off, shared keys off, versioning, 14-day soft delete; containers `book-covers`, `book-pdfs` |
+| Key Vault | RBAC | RBAC + purge protection | `db-password` (template); `jwt-secret`, `ticket-secret`, `mail-*` (RUNBOOK §3) |
+| Log Analytics + Application Insights | 30 days | 90 days | Agent masks `ticket=` in request URLs |
+| Action group + 5 metric alerts | | | 5xx, response time, health, DB CPU, DB storage |
 
-## 2. Identity / RBAC
+Role assignments (least privilege): the app's (and slot's) managed identity gets **Storage Blob Data
+Contributor** on the two containers only, and **Key Vault Secrets User** on the vault.
 
-App Service Managed Identity gets:
-- `Storage Blob Data Contributor` on the storage account (scope: the two containers).
-- `Key Vault Secrets User` on the Key Vault.
-- PostgreSQL: Entra admin creates a DB role for the identity (preferred) or a password stored in Key Vault.
-
-## 3. App settings (App Service)
+## 3. App settings (set by the template)
 
 | Setting | Value |
 |---|---|
-| `SPRING_PROFILES_ACTIVE` | `prod` / `dev` |
-| `DB_URL` | `jdbc:postgresql://<server>.postgres.database.azure.com:5432/songbook?sslmode=require` |
-| `DB_USERNAME` / `DB_PASSWORD` | Key Vault references |
-| `SONGBOOK_CORS_ORIGINS` | `https://<frontend-domain>` |
-| `SONGBOOK_TIMEZONE` | decision D5 |
-| `SONGBOOK_MEMBERSHIP_DAYS` | decision D1 |
-| `SONGBOOK_STORAGE_PROVIDER` | `azure` |
-| `AZURE_STORAGE_ACCOUNT_ENDPOINT` | `https://<account>.blob.core.windows.net` (Phase 6) |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | server FQDN with `sslmode=require` / admin login / Key Vault ref |
+| `SONGBOOK_JWT_SECRET`, `SONGBOOK_TICKET_SECRET` | Key Vault refs |
+| `SONGBOOK_FRONTEND_URL`, `SONGBOOK_CORS_ORIGINS` | `https://<frontend domain>` |
+| `SONGBOOK_TIMEZONE`, `SONGBOOK_MEMBERSHIP_DAYS` | parameters (D5, D1) |
+| `SONGBOOK_STORAGE_PROVIDER`, `AZURE_STORAGE_ACCOUNT_ENDPOINT` | `azure`, blob endpoint |
+| `MAIL_HOST`/`MAIL_PORT`, `MAIL_USERNAME`/`MAIL_PASSWORD`, `SONGBOOK_MAIL_FROM` | `smtp.azurecomm.net:587` (STARTTLS required by `application-prod.yml`), Key Vault refs, parameter (D4) |
+| `APPLICATIONINSIGHTS_*` | connection string, agent `~3`, URL masking config |
 
-## 4. CI/CD (GitHub Actions, Phase 12)
+The SPA gets its API origin at build time (`VITE_API_BASE_URL`, set by the deploy workflow).
 
-1. Checkout → 2. `./mvnw verify` (unit + Testcontainers) → 3. frontend `npm ci && npm run lint && npm test && npm run build`
-→ 4. build container / jar → 5. deploy to **dev** (OIDC federated credential, no stored secrets)
-→ 6. smoke test `/actuator/health` + catalogue → 7. **manual approval** (GitHub environment protection) → 8. deploy to **prod** (slot swap).
+## 4. CI/CD (`.github/workflows`)
 
-## 5. Operations
+| Workflow | Trigger | Steps |
+|---|---|---|
+| `ci.yml` | push / PR | backend `mvnw verify`; frontend typecheck, unit tests, build, `npm audit`; Bicep build; Playwright E2E on the dev server **and** on the production build in the production topology (cross-origin API, real CSP) |
+| `deploy.yml` | push to `main` | tests → jar → **dev** (API, readiness, SPA, smoke test) → **approval** → **prod** (staging slot, readiness, swap, SPA, smoke test) |
+| `infra.yml` | manual | what-if preview → (approval for prod) → apply, outputs in the job summary |
+| `dependabot.yml` | weekly | Maven, npm, GitHub Actions updates |
 
-- Alerts: 5xx rate, p95 latency, App Service health, DB CPU/storage, failed logins spike.
-- Backups: PostgreSQL PITR; Blob soft delete (14 d) + versioning.
-- Flyway runs on app start; prod migrations reviewed in PR; `clean-disabled: true`.
-- Reconciliation job for `storage_cleanup_queue` (Phase 6).
+Authentication is GitHub OIDC → Entra ID; no Azure credentials or deployment tokens are stored in GitHub.
+
+## 5. Open decisions affecting deployment
+
+D1 membership days, D4 email sender domain, D5 timezone, D8 domain names. All are parameters
+(`TODO` markers in `infra/env/*.bicepparam`).

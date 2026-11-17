@@ -65,8 +65,8 @@ Caveat: tiny dataset, local machine. Re-run against Azure with production-sized 
 
 | Item | Why open | Suggested phase |
 |---|---|---|
-| Backend dependency vulnerability scan (OWASP Dependency-Check / Dependabot) | Needs NVD API key or GitHub integration | 12 (CI) |
-| SPA Content-Security-Policy | Needs final API domain (decision D8); MUI needs `style-src 'unsafe-inline'`, PDF.js `worker-src 'self' blob:` and `wasm-unsafe-eval` | 12 |
+| Backend dependency vulnerability scan | **Done in Phase 12:** Dependabot (Maven, npm, Actions) in `.github/dependabot.yml`; enable Dependabot security alerts in the repository settings | — |
+| SPA Content-Security-Policy | **Done in Phase 12:** generated per environment by `scripts/write-swa-config.mjs`; browser suite passes on the production build with 0 CSP violations, same-origin and cross-origin | — |
 | Rate limiter is per-instance | In-memory by design (SECURITY.md §2) | When scaling out |
 | `TestInfrastructure` (integration tests) still uses an unpooled DataSource | Only slows tests slightly | Optional |
 | Manual screen-reader and zoom testing | Not automatable | Before release |

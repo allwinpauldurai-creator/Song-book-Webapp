@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { a11yViolations, openBook, settled } from './helpers';
+import { a11yViolations, openBook, settled, trackCspViolations } from './helpers';
+
+let csp: string[] = [];
+test.beforeEach(async ({ page }) => {
+  csp = await trackCspViolations(page);
+});
+test.afterEach(() => {
+  expect(csp, 'Content-Security-Policy violations').toEqual([]);
+});
 
 // Guest flows (FR-01, FR-02): browse without logging in; protected routes send you to login.
 
@@ -90,4 +98,25 @@ test('PDF.js runtime assets are served (scanned-book image decoders, fonts) and 
     expect(res.headers()['content-type'] ?? '', path).not.toBe('application/wasm');
     expect(await res.text(), path).not.toContain('"pdfjs-dist"');
   }
+});
+
+test('CSP is enforced on the production build and violations are detected', async ({ page }) => {
+  const res = await page.goto('/');
+  const policy = res?.headers()['content-security-policy'];
+  test.skip(!policy, 'dev server: no CSP header (run npm run test:e2e:prod)');
+
+  expect(policy).toContain("script-src 'self' 'wasm-unsafe-eval'");
+  expect(policy).toContain("frame-ancestors 'none'");
+  expect(res?.headers()['x-frame-options']).toBe('DENY');
+
+  // Proves the tracker works: an injected inline script must be blocked and reported.
+  await page.evaluate(() => {
+    const s = document.createElement('script');
+    s.textContent = 'window.__inlineRan = true';
+    document.body.append(s);
+  });
+  await expect.poll(() => csp.length).toBe(1);
+  expect(csp[0]).toMatch(/^script-src/);
+  expect(await page.evaluate(() => (window as unknown as { __inlineRan?: boolean }).__inlineRan)).toBeUndefined();
+  csp.length = 0; // expected violation; don't fail afterEach
 });

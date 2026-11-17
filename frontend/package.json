@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:prod": "vite build && node ../scripts/write-swa-config.mjs same-origin dist/staticwebapp.config.json && playwright test --config playwright.prod.config.ts",
+    "test:e2e:cross-origin": "vite build --mode crossorigin && node ../scripts/write-swa-config.mjs http://localhost:8080 dist/staticwebapp.config.json && playwright test --config playwright.cross-origin.config.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -17,5 +17,5 @@
     "allowImportingTsExtensions": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "e2e", "vite.config.ts", "vite-plugin-pdfjs-assets.ts", "playwright.config.ts"]
+  "include": ["src", "e2e", "vite.config.ts", "vite-plugin-pdfjs-assets.ts", "playwright.config.ts", "playwright.prod.config.ts", "playwright.cross-origin.config.ts"]
 }

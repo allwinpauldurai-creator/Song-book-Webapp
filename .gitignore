@@ -14,6 +14,7 @@ dist/
 .env
 .env.*
 !.env.example
+!frontend/.env.crossorigin
 *.pem
 *.key
 
@@ -24,3 +25,5 @@ Thumbs.db
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+frontend/test-results-prod/
+frontend/playwright-report-prod/

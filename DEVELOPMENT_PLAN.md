@@ -12,8 +12,8 @@
 | 8 | PDF eligibility, access tickets, streaming with Range, download | **Delivered** (backend + PDF.js reader + download) |
 | 9 | Reading progress, modification requests, audit logs | **Delivered** (backend + member dashboard, profile, requests) |
 | 10 | Admin dashboard & management UI | **Delivered** (all admin pages + `/admin/stats`) |
-| 11 | Security review, performance, accessibility, E2E | **Delivered** - awaiting approval (see `docs/SECURITY_REVIEW.md`) |
-| 12 | Azure deployment, CI/CD, monitoring, backups, runbooks | Not started |
+| 11 | Security review, performance, accessibility, E2E | **Delivered** (see `docs/SECURITY_REVIEW.md`) |
+| 12 | Azure deployment, CI/CD, monitoring, backups, runbooks | **Delivered as code, not yet deployed** - awaiting approval (needs domains D8 + Azure access) |
 
 Phases 3–9 (backend) were built in one step at the user's request (2026-11-16), instead of one
 phase at a time.
@@ -184,3 +184,43 @@ Full report: `docs/SECURITY_REVIEW.md`. Summary:
 
 Backend dependency scanning and the SPA Content-Security-Policy belong to Phase 12 (CI and domains, D8);
 manual screen-reader/zoom testing before release. Details in `docs/SECURITY_REVIEW.md` §5.
+
+## Phase 12: Azure deployment, CI/CD, monitoring, backups, runbooks (2026-11-17)
+
+Everything needed to deploy, validated locally. **Nothing is deployed yet**: that needs an Azure
+subscription, a GitHub OIDC identity and the domain names (decision D8 = custom domains).
+
+| Deliverable | Where |
+|---|---|
+| Infrastructure as code (29 resources): App Service + staging slot, PostgreSQL 16 with PITR backups, private Blob Storage (no keys, versioning, soft delete), Key Vault, Static Web Apps, App Insights (ticket masking), managed identities with least-privilege roles, 5 metric alerts, custom domains + managed certificates | `infra/main.bicep`, `infra/modules/sni-binding.bicep`, `infra/env/*.bicepparam` |
+| CI: backend verify, frontend checks + audit, Bicep build, Playwright on dev server and on the production build in production topology | `.github/workflows/ci.yml` |
+| CD: dev → approval → prod via staging slot + swap, OIDC only, smoke test after each deployment | `.github/workflows/deploy.yml`, `scripts/smoke-test.mjs` |
+| Infrastructure workflow with what-if preview and approval | `.github/workflows/infra.yml` |
+| Dependency updates | `.github/dependabot.yml` |
+| SPA security headers + CSP generated per environment | `scripts/write-swa-config.mjs` |
+| Runbook: setup, DNS, secrets + rotation, first admin, migrations, rollback, backup/restore, incidents, hardening | `docs/RUNBOOK.md`; `docs/AZURE_DEPLOYMENT.md` rewritten |
+
+Fixes found while validating:
+- **Production bug:** `VITE_API_BASE_URL` was ignored in builds (`import.meta.env?.X` is not substituted by
+  Vite), so the deployed SPA would have called its own host for every API request. Fixed in `client.ts`;
+  caught by the new cross-origin test mode, which builds with an API origin and serves without a proxy.
+- `backend/mvnw` was not executable in git (CI on Linux would fail); mode set to 100755.
+- Production SMTP now requires STARTTLS (Azure Communication Services relay).
+
+### Results
+
+| Check | Result |
+|---|---|
+| Bicep CLI 0.49.2 (Microsoft-signed) | `main.bicep` and both parameter files compile, 0 errors, 0 linter warnings |
+| actionlint 1.7.12 (checksum verified) | 3 workflows, 0 issues (shell snippets not checked: no shellcheck) |
+| Backend `mvnw clean verify` (JDK 25) | 57 pass |
+| Frontend `tsc -b` / unit tests / build / `npm audit --omit=dev` | clean / 32 pass / OK / 0 vulnerabilities |
+| Playwright on production build + CSP, same origin | 31/31, 0 CSP violations (self-test proves violations are detected) |
+| Playwright on production build, cross-origin (production topology) | 31/31, 0 CSP violations |
+| Smoke test against the local production build | 8/9; the expected failure is "API docs disabled" (local profile keeps Swagger on) |
+
+### Not verified (needs a real Azure deployment)
+
+Resource provisioning itself (what-if/apply), managed certificates, Key Vault references resolving,
+App Insights URL masking, Azure Blob storage (`AzureBlobFileStorageService` never run against Azure),
+ACS SMTP sending, staging-slot swap, OIDC login. Follow `docs/RUNBOOK.md` §1–4 for the first deployment.

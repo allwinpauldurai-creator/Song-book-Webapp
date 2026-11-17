@@ -39,3 +39,20 @@ export async function settled(page: Page) {
     { timeout: 15_000 },
   );
 }
+
+/**
+ * Records Content-Security-Policy violations (the browser's securitypolicyviolation events) so a
+ * test run against the production build fails if the CSP blocks anything the app needs.
+ */
+export async function trackCspViolations(page: Page): Promise<string[]> {
+  const violations: string[] = [];
+  await page.exposeFunction('__reportCsp', (v: string) => violations.push(v));
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (e) =>
+      (window as unknown as { __reportCsp: (v: string) => void }).__reportCsp(
+        `${e.effectiveDirective} blocked ${e.blockedURI || '(inline)'} on ${location.pathname}`,
+      ),
+    );
+  });
+  return violations;
+}
