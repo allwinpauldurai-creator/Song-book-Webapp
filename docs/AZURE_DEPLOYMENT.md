@@ -58,7 +58,7 @@ The SPA gets its API origin at build time (`VITE_API_BASE_URL`, set by the deplo
 | Workflow | Trigger | Steps |
 |---|---|---|
 | `ci.yml` | push / PR | backend `mvnw verify`; frontend typecheck, unit tests, build, `npm audit`; Bicep build; Playwright E2E on the dev server **and** on the production build in the production topology (cross-origin API, real CSP) |
-| `deploy.yml` | push to `main` | tests → jar → **dev** (API, readiness, SPA, smoke test) → **approval** → **prod** (staging slot, readiness, swap, SPA, smoke test) |
+| `deploy.yml` | push to `dev` or `main` | tests → jar → **dev** (API, readiness, SPA, smoke test); from `main` only and when the repository variable `PROD_ENABLED` is `true`: → **approval** → **prod** (staging slot, readiness, swap, SPA, smoke test) |
 | `infra.yml` | manual | what-if preview → (approval for prod) → apply, outputs in the job summary |
 | `dependabot.yml` | weekly | Maven, npm, GitHub Actions updates |
 

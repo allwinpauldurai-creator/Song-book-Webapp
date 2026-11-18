@@ -20,6 +20,8 @@ Commands use the Azure CLI (`az`) and assume `RG=rg-songbook-<env>`.
      `WEBAPP_NAME`, `SWA_NAME`, `API_ORIGIN`, `FRONTEND_ORIGIN` (the last four come from the infra outputs).
    - Secret: `PG_ADMIN_PASSWORD` (generate: `openssl rand -base64 32`).
    - `prod`: add required reviewers (this is the manual approval gate for infra and deployments).
+   - When prod is ready, add the **repository** variable `PROD_ENABLED` = `true` (Settings → Secrets and
+     variables → Actions → Variables); without it the Deploy workflow skips prod.
 4. **Parameters:** replace every `TODO` in `infra/env/<env>.bicepparam` (domains D8, alert email,
    SMS provider and MSG91 template ids, timezone D5, membership days D1).
 5. **SMS (sign-up codes, password reset, mobile change):** accounts sign in with a mobile number confirmed by a
@@ -98,8 +100,10 @@ A red reference means the app cannot start (`*_SECRET must be set`).
 
 ## 5. Routine deployments and database migrations
 
+- Push to `dev` → **Deploy**: tests → dev → smoke test (dev only).
 - Merge to `main` → **Deploy**: tests → dev → smoke test → (approval) → prod staging slot → readiness →
-  swap → SPA → smoke test.
+  swap → SPA → smoke test. The prod job runs only when the repository variable `PROD_ENABLED` is `true`;
+  until then it shows as skipped.
 - Manual smoke test any time: `node scripts/smoke-test.mjs https://<frontend> https://<api>`.
 - **Migrations must be backward compatible.** The staging slot starts against the *production* database,
   so Flyway runs before the swap while the old version still serves traffic. Use expand/contract:

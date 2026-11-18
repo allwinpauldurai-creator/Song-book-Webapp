@@ -1,4 +1,8 @@
-# Continuous deployment: main -> dev automatically -> prod after manual approval.
+# Continuous deployment:
+#   push to dev  -> dev only
+#   push to main -> dev -> prod (after manual approval)
+# Prod runs only when the REPOSITORY variable PROD_ENABLED is 'true' (Settings -> Secrets and variables ->
+# Actions -> Variables). Until the prod resources and the "prod" environment exist it is skipped.
 #
 # Authentication: GitHub OIDC -> Entra ID workload identity (no stored Azure credentials).
 # Per GitHub environment ("dev", "prod") configure (docs/RUNBOOK.md §1):
@@ -9,7 +13,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -97,6 +101,9 @@ jobs:
   deploy-prod:
     name: Deploy to prod (staging slot -> swap)
     needs: [build-backend, deploy-dev]
+    # Only from main, and only once prod is set up. Environment variables are not available in a job-level
+    # `if`, so PROD_ENABLED must be a repository variable.
+    if: github.ref == 'refs/heads/main' && vars.PROD_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: prod # requires approval (GitHub environment protection rule)
     timeout-minutes: 45
