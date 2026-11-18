@@ -17,10 +17,9 @@ public class SmsConfig {
         return switch (sms.provider()) {
             case "msg91" -> {
                 AppProperties.Msg91 m = sms.msg91();
-                if (Stream.of(m.authKey(), m.templateVerify(), m.templateReset(), m.templateChange())
-                        .anyMatch(v -> v == null || v.isBlank())) {
+                if (Stream.of(m.authKey(), m.templateVerify()).anyMatch(v -> v == null || v.isBlank())) {
                     throw new IllegalStateException("songbook.sms.provider=msg91 requires msg91.auth-key and the "
-                            + "template-verify, template-reset and template-change ids");
+                            + "template-verify id (template-reset and template-change default to it)");
                 }
                 yield new Msg91SmsSender(restClientBuilder, m);
             }

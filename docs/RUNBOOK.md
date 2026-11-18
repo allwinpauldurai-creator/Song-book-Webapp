@@ -28,10 +28,13 @@ Commands use the Azure CLI (`az`) and assume `RG=rg-songbook-<env>`.
    6-digit SMS code.
    - `smsProvider = 'log'` (dev default): codes are **not sent**, they are written to the app log
      (Application Insights → Logs: `AppTraces | where Message has "DEV SMS"`). Never use it in production.
-   - `smsProvider = 'msg91'` (prod): create an MSG91 account and complete **DLT registration** (Indian telecom
-     rule: registered entity, sender ID, and approved templates). Register three OTP templates — sign-up,
-     password reset, mobile change — each containing the `##otp##` variable, and put their template ids in
-     the parameter file. The MSG91 auth key goes to Key Vault in §3. Startup fails if any of them is missing.
+   - `smsProvider = 'msg91'` (real SMS, prod and optionally dev): create an MSG91 account and complete
+     **DLT registration** (Indian telecom rule: registered entity, sender ID, and approved templates). Register
+     OTP templates containing the OTP variable and put their ids in the parameter file: `msg91TemplateVerify`
+     is required; `msg91TemplateReset` / `msg91TemplateChange` are optional and default to it. If the
+     template's variable is not `##otp##`, set `msg91OtpVariable` (e.g. `OTP` for `##OTP##`). The MSG91 auth
+     key goes to Key Vault in §3; startup fails without it or without the verify template. MSG91 rejections
+     are logged as `Failed to send … SMS to …: MSG91 …` (AppTraces).
    - `smsDailyLimit` caps codes per 24 h across all users (cost guard; requests beyond it get HTTP 429).
 6. Run the **Infrastructure** workflow for the environment; review the what-if output, approve, then copy
    the outputs into the GitHub environment variables.

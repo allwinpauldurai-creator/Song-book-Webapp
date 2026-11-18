@@ -63,10 +63,13 @@ param membershipDays int = 365
 @allowed(['msg91', 'log'])
 param smsProvider string = environmentName == 'prod' ? 'msg91' : 'log'
 
-@description('MSG91 DLT template ids (each template contains ##otp##). Required when smsProvider is msg91.')
+@description('MSG91 DLT template ids (each template contains the OTP variable). Verify is required when smsProvider is msg91; reset and change default to it.')
 param msg91TemplateVerify string = ''
 param msg91TemplateReset string = ''
 param msg91TemplateChange string = ''
+
+@description('Name of the OTP variable in the MSG91 template text (##otp## -> otp).')
+param msg91OtpVariable string = 'otp'
 
 @description('Maximum SMS codes sent in any 24 hours across all users (cost guard).')
 param smsDailyLimit int = 500
@@ -269,6 +272,7 @@ var smsSettings = smsProvider == 'msg91'
       { name: 'MSG91_TEMPLATE_VERIFY', value: msg91TemplateVerify }
       { name: 'MSG91_TEMPLATE_RESET', value: msg91TemplateReset }
       { name: 'MSG91_TEMPLATE_CHANGE', value: msg91TemplateChange }
+      { name: 'MSG91_OTP_VARIABLE', value: msg91OtpVariable }
     ]
   : [
       { name: 'SONGBOOK_SMS_PROVIDER', value: 'log' }

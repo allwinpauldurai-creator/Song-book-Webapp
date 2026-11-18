@@ -95,6 +95,8 @@ songbook:
     msg91:
       auth-key: ${MSG91_AUTH_KEY:}
       template-verify: ${MSG91_TEMPLATE_VERIFY:}
+      # Name of the OTP variable in the MSG91 template text (##otp## -> otp).
+      otp-variable: ${MSG91_OTP_VARIABLE:otp}
       template-reset: ${MSG91_TEMPLATE_RESET:}
       template-change: ${MSG91_TEMPLATE_CHANGE:}
   bootstrap:

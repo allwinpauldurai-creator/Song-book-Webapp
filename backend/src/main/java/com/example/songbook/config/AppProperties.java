@@ -105,14 +105,16 @@ public record AppProperties(
     }
 
     /**
-     * MSG91 Flow API. Each purpose uses its own DLT-approved template containing the {@code ##otp##} variable.
+     * MSG91 Flow API. DLT-approved templates whose text contains the OTP variable ({@code ##otp##} unless
+     * {@code otpVariable} says otherwise). Only {@code templateVerify} is required: reset and change fall back to it.
      */
     public record Msg91(
             @DefaultValue("https://control.msg91.com") String baseUrl,
             String authKey,
             String templateVerify,
             String templateReset,
-            String templateChange) {
+            String templateChange,
+            @DefaultValue("otp") String otpVariable) {
         @Override
         public String toString() {
             return "Msg91[baseUrl=" + baseUrl + ", authKey=***]";

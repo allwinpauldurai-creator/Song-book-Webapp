@@ -34,6 +34,8 @@ public class OtpSmsService {
     public void deliver(OutgoingOtp otp) {
         try {
             sender.sendOtp(otp.mobile(), otp.purpose(), otp.code());
+        } catch (SmsSendException e) {
+            log.warn("Failed to send {} SMS to {}: {}", otp.purpose(), PhoneNumbers.mask(otp.mobile()), e.getMessage());
         } catch (RuntimeException e) {
             log.warn("Failed to send {} SMS to {}: {}", otp.purpose(), PhoneNumbers.mask(otp.mobile()),
                     e.getClass().getSimpleName());
