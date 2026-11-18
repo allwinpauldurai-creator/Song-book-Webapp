@@ -39,12 +39,12 @@ public record AppProperties(
     /**
      * @param defaultDurationDays          length of an automatically created membership; 0 means no end date.
      *                                     The business owner must confirm this value (decision D1).
-     * @param autoCreateOnMobileVerification create an ACTIVE membership when a member verifies their mobile (decision D2)
+     * @param autoCreateOnRegistration     create an ACTIVE membership when a member registers (decision D2)
      * @param adminsBypassMembership       admins may read PDFs without a membership (decision D3)
      */
     public record Membership(
             @Min(0) int defaultDurationDays,
-            @DefaultValue("true") boolean autoCreateOnMobileVerification,
+            @DefaultValue("true") boolean autoCreateOnRegistration,
             @DefaultValue("true") boolean adminsBypassMembership) {
     }
 
@@ -106,12 +106,12 @@ public record AppProperties(
 
     /**
      * MSG91 Flow API. DLT-approved templates whose text contains the OTP variable ({@code ##otp##} unless
-     * {@code otpVariable} says otherwise). Only {@code templateVerify} is required: reset and change fall back to it.
+     * {@code otpVariable} says otherwise). Only {@code templateOtp} is required: reset and change fall back to it.
      */
     public record Msg91(
             @DefaultValue("https://control.msg91.com") String baseUrl,
             String authKey,
-            String templateVerify,
+            String templateOtp,
             String templateReset,
             String templateChange,
             @DefaultValue("otp") String otpVariable) {

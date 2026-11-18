@@ -218,14 +218,7 @@ function MobileCard() {
         </Typography>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 1 }}>
           <Typography sx={{ fontWeight: 600 }}>{user?.mobile ? formatMobile(user.mobile) : 'No mobile number'}</Typography>
-          {user?.mobile && (
-            <Chip
-              size="small"
-              variant="outlined"
-              color={user.mobileVerified ? 'success' : 'warning'}
-              label={user.mobileVerified ? 'Verified' : 'Not verified'}
-            />
-          )}
+          {user?.mobileVerified && <Chip size="small" variant="outlined" color="success" label="Verified" />}
           <Box sx={{ flexGrow: 1 }} />
           <Button variant="outlined" onClick={() => setOpen(true)}>
             {user?.mobile ? 'Change' : 'Add'}

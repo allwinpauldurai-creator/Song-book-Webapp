@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Requirements 14.1 / 14.2: registration, mobile verification, login, refresh, reset, account state. */
+/** Requirements 14.1 / 14.2: registration (no SMS code), login, refresh, reset, mobile change, account state. */
 class AuthFlowTests extends IntegrationTest {
 
     private static final String GENERIC_SMS = "If the number is registered, a code has been sent by SMS.";
@@ -33,13 +33,33 @@ class AuthFlowTests extends IntegrationTest {
         return code.equals("000000") ? "111111" : "000000";
     }
 
+    private void requestResetCode(String mobile) throws Exception {
+        mvc.perform(post("/api/v1/auth/forgot-password").contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("mobile", mobile)))).andExpect(status().isAccepted());
+    }
+
+    private MvcResult resetResult(String mobile, String code, String newPassword) throws Exception {
+        return mvc.perform(post("/api/v1/auth/reset-password").contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("mobile", mobile, "code", code, "newPassword", newPassword)))).andReturn();
+    }
+
     @Test
-    void registrationCreatesUnverifiedMemberWithHashedPasswordAndCodeOnly() throws Exception {
+    void registrationSignsInAMemberWithMembershipAndSendsNoSms() throws Exception {
         String mobile = uniqueMobile();
-        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+        MvcResult r = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(Map.of("fullName", "Reg User", "mobile", loosely(mobile),
                                 "email", "Reg.User@Example.ORG", "password", PASSWORD))))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.user.mobile").value(mobile))
+                .andExpect(jsonPath("$.user.mobileVerified").value(false))
+                .andExpect(jsonPath("$.user.membership.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.user.membership.valid").value(true))
+                .andReturn();
+        Cookie refresh = r.getResponse().getCookie("sb_refresh");
+        assertThat(refresh).isNotNull();
+        assertThat(refresh.isHttpOnly()).isTrue();
+        assertThat(sms.count(mobile)).isZero();
 
         Map<String, Object> row = jdbc.queryForMap(
                 "select mobile, email, password_hash, mobile_verified from users where mobile = ?", mobile);
@@ -50,11 +70,13 @@ class AuthFlowTests extends IntegrationTest {
                 select r.name from user_roles ur join roles r on r.id = ur.role_id
                 join users u on u.id = ur.user_id where u.mobile = ?""", String.class, mobile))
                 .containsExactly("MEMBER");
-        // The code is stored only as a hash.
-        String code = sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION);
-        assertThat(code).matches("\\d{6}");
-        assertThat(jdbc.queryForObject("select count(*) from otp_codes where code_hash = ?", Integer.class, code))
-                .isZero();
+
+        String access = body(r).get("accessToken").asText();
+        mvc.perform(bearer(get("/api/v1/users/me"), access))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles[0]").value("MEMBER"));
+        // The account works with a fresh sign-in too.
+        login(loosely(mobile), PASSWORD);
     }
 
     @Test
@@ -62,11 +84,14 @@ class AuthFlowTests extends IntegrationTest {
         String mobile = uniqueMobile();
         String national = mobile.substring(3);
         register(national, PASSWORD);
-        register("+91 " + national.substring(0, 5) + "-" + national.substring(5), PASSWORD);
-        register("0" + national, PASSWORD);
+        for (String spelling : new String[]{"+91 " + national.substring(0, 5) + "-" + national.substring(5),
+                "0" + national}) {
+            MvcResult again = registerResult(spelling, PASSWORD);
+            assertThat(again.getResponse().getStatus()).isEqualTo(409);
+            assertThat(body(again).get("code").asText()).isEqualTo("MOBILE_ALREADY_REGISTERED");
+        }
         assertThat(jdbc.queryForObject("select count(*) from users where mobile = ?", Integer.class, mobile))
                 .isEqualTo(1);
-        verify(mobile);
         login(loosely(mobile), PASSWORD);
     }
 
@@ -79,17 +104,18 @@ class AuthFlowTests extends IntegrationTest {
     }
 
     @Test
-    void duplicateRegistrationReturnsSameResponseAndCreatesNoSecondUser() throws Exception {
+    void duplicateRegistrationIsRefusedAndKeepsTheOriginalAccount() throws Exception {
         String mobile = uniqueMobile();
         register(mobile, PASSWORD);
-        register(mobile, "Other-Password-999");
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("fullName", "Someone Else", "mobile", mobile,
+                                "password", "Other-Password-999"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MOBILE_ALREADY_REGISTERED"))
+                .andExpect(header().doesNotExist("Set-Cookie"));
         assertThat(jdbc.queryForObject("select count(*) from users where mobile = ?", Integer.class, mobile))
                 .isEqualTo(1);
-        // Once verified, registering again sends nothing.
-        verify(mobile);
-        long sent = sms.count(mobile);
-        register(mobile, "Other-Password-999");
-        assertThat(sms.count(mobile)).isEqualTo(sent);
+        assertThat(loginResult(mobile, "Other-Password-999").getResponse().getStatus()).isEqualTo(401);
         login(mobile, PASSWORD);
     }
 
@@ -102,7 +128,7 @@ class AuthFlowTests extends IntegrationTest {
             mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                             .content(toJson(Map.of("fullName", "X", "mobile", mobile, "email", email,
                                     "password", PASSWORD))))
-                    .andExpect(status().isAccepted());
+                    .andExpect(status().isCreated());
         }
         assertThat(jdbc.queryForObject("select email from users where mobile = ?", String.class, first))
                 .isEqualTo(email);
@@ -115,7 +141,7 @@ class AuthFlowTests extends IntegrationTest {
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(toJson(Map.of("fullName", "X", "mobile", mobile, "password", PASSWORD,
                                 "roles", new String[]{"ADMIN"}, "accountStatus", "ACTIVE"))))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isCreated());
         assertThat(jdbc.queryForList("""
                 select r.name from user_roles ur join roles r on r.id = ur.role_id
                 join users u on u.id = ur.user_id where u.mobile = ?""", String.class, mobile))
@@ -133,69 +159,34 @@ class AuthFlowTests extends IntegrationTest {
     }
 
     @Test
-    void unverifiedUserCannotLogIn() throws Exception {
-        String mobile = uniqueMobile();
-        register(mobile, PASSWORD);
-        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("mobile", mobile, "password", PASSWORD))))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("MOBILE_NOT_VERIFIED"));
+    void expiredResetCodeIsRejected() throws Exception {
+        Member m = newMember("expired");
+        requestResetCode(m.mobile());
+        String code = sms.lastCode(m.mobile(), OtpPurpose.PASSWORD_RESET);
+        jdbc.update("update otp_codes set expires_at = now() - interval '1 minute' where user_id = ?", m.id());
+        assertThat(resetResult(m.mobile(), code, "Brand-New-Password-1").getResponse().getStatus()).isEqualTo(400);
+        login(m.mobile(), PASSWORD);
     }
 
     @Test
-    void verificationCreatesMembershipAndCodeCannotBeReused() throws Exception {
-        String mobile = uniqueMobile();
-        register(mobile, PASSWORD);
-        String code = sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION);
-        verify(mobile);
-        MvcResult reused = verifyResult(mobile, code);
-        assertThat(reused.getResponse().getStatus()).isEqualTo(400);
-        assertThat(body(reused).get("code").asText()).isEqualTo("INVALID_CODE");
-
-        String access = login(mobile, PASSWORD);
-        mvc.perform(bearer(get("/api/v1/users/me"), access))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.mobile").value(mobile))
-                .andExpect(jsonPath("$.mobileVerified").value(true))
-                .andExpect(jsonPath("$.roles[0]").value("MEMBER"))
-                .andExpect(jsonPath("$.membership.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.membership.valid").value(true));
-    }
-
-    @Test
-    void expiredCodeIsRejected() throws Exception {
-        String mobile = uniqueMobile();
-        register(mobile, PASSWORD);
-        String code = sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION);
-        jdbc.update("update otp_codes set expires_at = now() - interval '1 minute' where user_id = "
-                + "(select id from users where mobile = ?)", mobile);
-        assertThat(verifyResult(mobile, code).getResponse().getStatus()).isEqualTo(400);
-    }
-
-    @Test
-    void codeIsBurnedAfterFiveWrongAttempts() throws Exception {
-        String mobile = uniqueMobile();
-        register(mobile, PASSWORD);
-        String code = sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION);
+    void resetCodeIsBurnedAfterFiveWrongAttempts() throws Exception {
+        Member m = newMember("burn");
+        requestResetCode(m.mobile());
+        String code = sms.lastCode(m.mobile(), OtpPurpose.PASSWORD_RESET);
         for (int i = 0; i < 5; i++) {
-            assertThat(verifyResult(mobile, wrong(code)).getResponse().getStatus()).isEqualTo(400);
+            assertThat(resetResult(m.mobile(), wrong(code), "Brand-New-Password-1").getResponse().getStatus())
+                    .isEqualTo(400);
         }
         // The right code no longer works: attempts were counted even though each request failed.
-        assertThat(verifyResult(mobile, code).getResponse().getStatus()).isEqualTo(400);
-        assertThat(jdbc.queryForObject("select mobile_verified from users where mobile = ?", Boolean.class, mobile))
-                .isFalse();
-
-        // A new code works.
-        mvc.perform(post("/api/v1/auth/resend-verification").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("mobile", mobile))))
-                .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.message").value(GENERIC_SMS));
-        verify(mobile);
+        MvcResult r = resetResult(m.mobile(), code, "Brand-New-Password-1");
+        assertThat(r.getResponse().getStatus()).isEqualTo(400);
+        assertThat(body(r).get("code").asText()).isEqualTo("INVALID_CODE");
+        login(m.mobile(), PASSWORD);
     }
 
     @Test
-    void codeForUnknownMobileIsRejectedLikeAWrongCode() throws Exception {
-        MvcResult r = verifyResult(uniqueMobile(), "123456");
+    void resetCodeForUnknownMobileIsRejectedLikeAWrongCode() throws Exception {
+        MvcResult r = resetResult(uniqueMobile(), "123456", "Brand-New-Password-1");
         assertThat(r.getResponse().getStatus()).isEqualTo(400);
         assertThat(body(r).get("code").asText()).isEqualTo("INVALID_CODE");
     }
@@ -277,17 +268,21 @@ class AuthFlowTests extends IntegrationTest {
 
         assertThat(loginResult(m.mobile(), PASSWORD).getResponse().getStatus()).isEqualTo(401);
         login(m.mobile(), newPassword);
+        // Receiving the code proved the member holds the number.
+        assertThat(jdbc.queryForObject("select mobile_verified from users where id = ?", Boolean.class, m.id()))
+                .isTrue();
     }
 
     @Test
-    void verificationCodeCannotResetThePassword() throws Exception {
-        String mobile = uniqueMobile();
-        register(mobile, PASSWORD);
-        String verifyCode = sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION);
-        mvc.perform(post("/api/v1/auth/reset-password").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("mobile", mobile, "code", verifyCode,
-                                "newPassword", "Brand-New-Password-1"))))
-                .andExpect(status().isBadRequest());
+    void mobileChangeCodeCannotResetThePassword() throws Exception {
+        Member m = newMember("cross");
+        String newMobile = uniqueMobile();
+        mvc.perform(bearer(post("/api/v1/users/me/mobile"), m.token()).contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("newMobile", newMobile, "currentPassword", PASSWORD))))
+                .andExpect(status().isAccepted());
+        String changeCode = sms.lastCode(newMobile, OtpPurpose.MOBILE_CHANGE);
+        assertThat(resetResult(m.mobile(), changeCode, "Brand-New-Password-1").getResponse().getStatus())
+                .isEqualTo(400);
     }
 
     @Test

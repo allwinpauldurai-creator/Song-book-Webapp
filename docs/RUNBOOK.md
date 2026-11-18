@@ -24,16 +24,16 @@ Commands use the Azure CLI (`az`) and assume `RG=rg-songbook-<env>`.
      variables → Actions → Variables); without it the Deploy workflow skips prod.
 4. **Parameters:** replace every `TODO` in `infra/env/<env>.bicepparam` (domains D8, alert email,
    SMS provider and MSG91 template ids, timezone D5, membership days D1).
-5. **SMS (sign-up codes, password reset, mobile change):** accounts sign in with a mobile number confirmed by a
-   6-digit SMS code.
+5. **SMS (password reset, mobile change):** accounts sign in with mobile number + password. Registration needs
+   no code; a 6-digit SMS code is sent only for password reset and for changing the mobile number.
    - `smsProvider = 'log'` (dev default): codes are **not sent**, they are written to the app log
      (Application Insights → Logs: `AppTraces | where Message has "DEV SMS"`). Never use it in production.
    - `smsProvider = 'msg91'` (real SMS, prod and optionally dev): create an MSG91 account and complete
      **DLT registration** (Indian telecom rule: registered entity, sender ID, and approved templates). Register
-     OTP templates containing the OTP variable and put their ids in the parameter file: `msg91TemplateVerify`
+     OTP templates containing the OTP variable and put their ids in the parameter file: `msg91TemplateOtp`
      is required; `msg91TemplateReset` / `msg91TemplateChange` are optional and default to it. If the
      template's variable is not `##otp##`, set `msg91OtpVariable` (e.g. `OTP` for `##OTP##`). The MSG91 auth
-     key goes to Key Vault in §3; startup fails without it or without the verify template. MSG91 rejections
+     key goes to Key Vault in §3; startup fails without it or without the OTP template. MSG91 rejections
      are logged as `Failed to send … SMS to …: MSG91 …` (AppTraces).
    - `smsDailyLimit` caps codes per 24 h across all users (cost guard; requests beyond it get HTTP 429).
 6. Run the **Infrastructure** workflow for the environment; review the what-if output, approve, then copy

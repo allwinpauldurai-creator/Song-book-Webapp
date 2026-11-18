@@ -63,8 +63,8 @@ param membershipDays int = 365
 @allowed(['msg91', 'log'])
 param smsProvider string = environmentName == 'prod' ? 'msg91' : 'log'
 
-@description('MSG91 DLT template ids (each template contains the OTP variable). Verify is required when smsProvider is msg91; reset and change default to it.')
-param msg91TemplateVerify string = ''
+@description('MSG91 DLT template ids (each template contains the OTP variable). The OTP template is required when smsProvider is msg91; reset and change default to it.')
+param msg91TemplateOtp string = ''
 param msg91TemplateReset string = ''
 param msg91TemplateChange string = ''
 
@@ -269,7 +269,7 @@ var smsSettings = smsProvider == 'msg91'
       { name: 'SONGBOOK_SMS_PROVIDER', value: 'msg91' }
       { name: 'SONGBOOK_SMS_ALLOW_LOG', value: 'false' }
       { name: 'MSG91_AUTH_KEY', value: kvRef(vault.name, 'msg91-auth-key') }
-      { name: 'MSG91_TEMPLATE_VERIFY', value: msg91TemplateVerify }
+      { name: 'MSG91_TEMPLATE_OTP', value: msg91TemplateOtp }
       { name: 'MSG91_TEMPLATE_RESET', value: msg91TemplateReset }
       { name: 'MSG91_TEMPLATE_CHANGE', value: msg91TemplateChange }
       { name: 'MSG91_OTP_VARIABLE', value: msg91OtpVariable }

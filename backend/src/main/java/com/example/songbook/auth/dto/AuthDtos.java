@@ -37,15 +37,6 @@ public final class AuthDtos {
         }
     }
 
-    public record VerifyMobileRequest(
-            @NotBlank @Size(max = 25) String mobile,
-            @NotBlank @Pattern(regexp = CODE_PATTERN) String code) {
-        @Override
-        public String toString() {
-            return "VerifyMobileRequest[***]";
-        }
-    }
-
     public record LoginRequest(
             @NotBlank @Size(max = 25) String mobile,
             @NotBlank @Size(max = 128) String password) {

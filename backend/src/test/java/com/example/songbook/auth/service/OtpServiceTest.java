@@ -47,30 +47,30 @@ class OtpServiceTest {
     }
 
     private OtpCode issued(Instant createdAt, String mobile) {
-        return new OtpCode(user, OtpPurpose.MOBILE_VERIFICATION, mobile, "hash", createdAt,
+        return new OtpCode(user, OtpPurpose.PASSWORD_RESET, mobile, "hash", createdAt,
                 createdAt.plus(Duration.ofMinutes(10)));
     }
 
     @Test
     void secondCodeWithinTheCooldownIsNotSent() {
-        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.MOBILE_VERIFICATION)))
+        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.PASSWORD_RESET)))
                 .thenReturn(Optional.of(issued(NOW.minusSeconds(30), MOBILE)));
-        assertThat(service.issue(user, OtpPurpose.MOBILE_VERIFICATION, MOBILE)).isFalse();
+        assertThat(service.issue(user, OtpPurpose.PASSWORD_RESET, MOBILE)).isFalse();
         verify(sms, never()).send(anyString(), any(), anyString());
     }
 
     @Test
     void codeAfterTheCooldownOrToAnotherNumberIsSent() {
-        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.MOBILE_VERIFICATION)))
+        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.PASSWORD_RESET)))
                 .thenReturn(Optional.of(issued(NOW.minusSeconds(61), MOBILE)));
-        assertThat(service.issue(user, OtpPurpose.MOBILE_VERIFICATION, MOBILE)).isTrue();
+        assertThat(service.issue(user, OtpPurpose.PASSWORD_RESET, MOBILE)).isTrue();
 
-        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.MOBILE_VERIFICATION)))
+        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.PASSWORD_RESET)))
                 .thenReturn(Optional.of(issued(NOW.minusSeconds(5), "+919000000000")));
-        assertThat(service.issue(user, OtpPurpose.MOBILE_VERIFICATION, MOBILE)).isTrue();
+        assertThat(service.issue(user, OtpPurpose.PASSWORD_RESET, MOBILE)).isTrue();
 
         ArgumentCaptor<String> code = ArgumentCaptor.forClass(String.class);
-        verify(sms, org.mockito.Mockito.times(2)).send(eq(MOBILE), eq(OtpPurpose.MOBILE_VERIFICATION), code.capture());
+        verify(sms, org.mockito.Mockito.times(2)).send(eq(MOBILE), eq(OtpPurpose.PASSWORD_RESET), code.capture());
         assertThat(code.getAllValues()).allMatch(c -> c.matches("\\d{6}"));
     }
 
@@ -86,10 +86,10 @@ class OtpServiceTest {
     @Test
     void wrongGuessesBurnTheCode() {
         OtpCode code = issued(NOW.minusSeconds(10), MOBILE);
-        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.MOBILE_VERIFICATION)))
+        when(codes.findFirstByUserIdAndPurposeOrderByCreatedAtDesc(any(), eq(OtpPurpose.PASSWORD_RESET)))
                 .thenReturn(Optional.of(code));
         for (int i = 0; i < 3; i++) {
-            assertThat(service.verify(user, OtpPurpose.MOBILE_VERIFICATION, "000000")).isEmpty();
+            assertThat(service.verify(user, OtpPurpose.PASSWORD_RESET, "000000")).isEmpty();
         }
         assertThat(code.getAttempts()).isEqualTo(3);
         assertThat(code.isUsable(NOW)).isFalse();

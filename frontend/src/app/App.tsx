@@ -7,7 +7,6 @@ import CataloguePage from '../features/catalogue/CataloguePage';
 import BookDetailPage from '../features/catalogue/BookDetailPage';
 import LoginPage from '../features/auth/LoginPage';
 import RegisterPage from '../features/auth/RegisterPage';
-import VerifyMobilePage from '../features/auth/VerifyMobilePage';
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
 import { NotFoundPage } from '../components/StatusPages';
 
@@ -40,7 +39,6 @@ export default function App() {
 
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
-          <Route path="verify-mobile" element={<VerifyMobilePage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
 
           <Route path="me" element={<Member><MePage /></Member>} />

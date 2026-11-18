@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * MSG91 Flow API: {@code POST /api/v5/flow} with the {@code authkey} header. The DLT-approved template's text
  * contains the OTP variable ({@code ##otp##} by default, see {@code msg91.otp-variable}). Password reset and
- * mobile change use their own templates when configured, otherwise the verification template. MSG91 expects the
+ * mobile change use their own templates when configured, otherwise the shared OTP template. MSG91 expects the
  * number without the leading {@code +} (e.g. {@code 919876543210}).
  *
  * <p>MSG91 can answer HTTP 200 with {@code {"type":"error"}}; both that and HTTP errors become
@@ -63,11 +63,10 @@ public class Msg91SmsSender implements SmsSender {
 
     String templateFor(OtpPurpose purpose) {
         String specific = switch (purpose) {
-            case MOBILE_VERIFICATION -> config.templateVerify();
             case PASSWORD_RESET -> config.templateReset();
             case MOBILE_CHANGE -> config.templateChange();
         };
-        return specific == null || specific.isBlank() ? config.templateVerify() : specific;
+        return specific == null || specific.isBlank() ? config.templateOtp() : specific;
     }
 
     private String otpVariable() {

@@ -23,7 +23,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class SmsProviderTest {
 
     private static final AppProperties.Msg91 MSG91 = new AppProperties.Msg91(
-            "https://msg91.test", "test-auth-key", "tpl-verify", "tpl-reset", "tpl-change", "otp");
+            "https://msg91.test", "test-auth-key", "tpl-otp", "tpl-reset", "tpl-change", "otp");
 
     private static AppProperties.Sms sms(String provider, boolean allowLog, AppProperties.Msg91 msg91) {
         return new AppProperties.Sms(provider, allowLog, Duration.ofMinutes(10), 5, Duration.ofSeconds(60), 500, msg91);
@@ -77,11 +77,11 @@ class SmsProviderTest {
                         .body("{\"type\":\"error\",\"message\":\"Invalid authkey\"}"));
         Msg91SmsSender sender = new Msg91SmsSender(builder, MSG91);
 
-        assertThatThrownBy(() -> sender.sendOtp("+919876543210", OtpPurpose.MOBILE_VERIFICATION, "111222"))
+        assertThatThrownBy(() -> sender.sendOtp("+919876543210", OtpPurpose.PASSWORD_RESET, "111222"))
                 .isInstanceOf(SmsSendException.class)
                 .hasMessageContaining("Template not approved")
                 .hasMessageNotContaining("111222");
-        assertThatThrownBy(() -> sender.sendOtp("+919876543210", OtpPurpose.MOBILE_VERIFICATION, "111222"))
+        assertThatThrownBy(() -> sender.sendOtp("+919876543210", OtpPurpose.PASSWORD_RESET, "111222"))
                 .isInstanceOf(SmsSendException.class)
                 .hasMessageContaining("401")
                 .hasMessageContaining("Invalid authkey");
@@ -99,7 +99,7 @@ class SmsProviderTest {
     }
 
     @Test
-    void msg91NeedsAuthKeyAndTheVerificationTemplate() {
+    void msg91NeedsAuthKeyAndTheOtpTemplate() {
         SmsConfig config = new SmsConfig();
         AppProperties.Msg91 incomplete = new AppProperties.Msg91("https://msg91.test", "key", "", "tpl", "tpl", "otp");
         assertThatThrownBy(() -> config.smsSender(props(sms("msg91", false, incomplete)), RestClient.builder()))

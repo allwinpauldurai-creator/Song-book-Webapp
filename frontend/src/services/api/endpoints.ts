@@ -16,17 +16,14 @@ import type {
 
 // ---------------------------------------------------------------- auth (public)
 
-// Mobile numbers are sent as E.164 (see utils/mobile.ts); SMS codes are six digits.
+// Mobile numbers are sent as E.164 (see utils/mobile.ts); SMS codes (password reset) are six digits.
 export const authApi = {
   login: (mobile: string, password: string) =>
     api<LoginResponse>('/auth/login', { method: 'POST', body: { mobile, password }, auth: false }),
   logout: () => api<void>('/auth/logout', { method: 'POST', auth: false }),
   register: (body: { fullName: string; mobile: string; email?: string | null; password: string }) =>
-    api<MessageResponse>('/auth/register', { method: 'POST', body, auth: false }),
-  verifyMobile: (mobile: string, code: string) =>
-    api<void>('/auth/verify-mobile', { method: 'POST', body: { mobile, code }, auth: false }),
-  resendVerification: (mobile: string) =>
-    api<MessageResponse>('/auth/resend-verification', { method: 'POST', body: { mobile }, auth: false }),
+    // No SMS code: the account is created and signed in (same response as login). 409 MOBILE_ALREADY_REGISTERED.
+    api<LoginResponse>('/auth/register', { method: 'POST', body, auth: false }),
   forgotPassword: (mobile: string) =>
     api<MessageResponse>('/auth/forgot-password', { method: 'POST', body: { mobile }, auth: false }),
   resetPassword: (mobile: string, code: string, newPassword: string) =>

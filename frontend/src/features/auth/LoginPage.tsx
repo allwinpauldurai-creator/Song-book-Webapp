@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Link as RouterLink, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link as RouterLink, useLocation, useSearchParams } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, Typography } from '@mui/material';
 import { ApiError, errorMessage } from '../../services/api/client';
-import { authApi } from '../../services/api/endpoints';
 import { useAuth } from '../../contexts/AuthContext';
 import { RedirectIfAuthenticated } from '../../routes/guards';
 import { safeNext } from '../../utils/redirect';
@@ -16,12 +15,10 @@ const MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Mobile number or password is incorrect.',
   ACCOUNT_LOCKED: 'Too many failed attempts. Your account is locked for 15 minutes.',
   ACCOUNT_DISABLED: 'This account is disabled. Please contact an administrator.',
-  MOBILE_NOT_VERIFIED: 'Please confirm your mobile number with the SMS code first.',
 };
 
 export default function LoginPage() {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
   const next = safeNext(params.get('next'), '/me');
   // e.g. "Your password was changed…", passed in navigation state (never in the URL).
   const notice = (useLocation().state as { notice?: string } | null)?.notice;
@@ -33,10 +30,6 @@ export default function LoginPage() {
 
   // On success the auth state flips to "authenticated" and RedirectIfAuthenticated navigates to `next`.
   const submit = useMutation({ mutationFn: () => login(e164!, password) });
-  const resend = useMutation({
-    mutationFn: () => authApi.resendVerification(e164!),
-    onSuccess: () => navigate('/verify-mobile', { state: { mobile: e164, sent: true } }),
-  });
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -53,21 +46,7 @@ export default function LoginPage() {
         <Box component="form" onSubmit={onSubmit} noValidate>
           <Stack spacing={2}>
             {notice && !err && <Alert severity="success">{notice}</Alert>}
-            {err && (
-              <Alert
-                severity="error"
-                action={
-                  code === 'MOBILE_NOT_VERIFIED' && (
-                    <Button color="inherit" size="small" disabled={resend.isPending} onClick={() => resend.mutate()}>
-                      Send code
-                    </Button>
-                  )
-                }
-              >
-                {(code && MESSAGES[code]) || errorMessage(err)}
-              </Alert>
-            )}
-            {resend.isError && <Alert severity="error">{errorMessage(resend.error)}</Alert>}
+            {err && <Alert severity="error">{(code && MESSAGES[code]) || errorMessage(err)}</Alert>}
             <MobileField value={mobile} onChange={setMobile} required autoFocus showError={touched} />
             <PasswordField
               label="Password"

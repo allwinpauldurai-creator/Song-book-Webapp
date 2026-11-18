@@ -141,7 +141,7 @@ function UserMenu() {
 export default function Layout() {
   const { status } = useAuth();
   const location = useLocation();
-  const onAuthPage = /^\/(login|register|forgot-password|verify-mobile)/.test(location.pathname);
+  const onAuthPage = /^\/(login|register|forgot-password)/.test(location.pathname);
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>

@@ -1,6 +1,5 @@
 package com.example.songbook.support;
 
-import com.example.songbook.auth.entity.OtpPurpose;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -86,24 +85,22 @@ public abstract class IntegrationTest {
 
     // ------------------------------------------------------------------ users
 
-    /** @param mobile any accepted spelling; the SMS is captured under the normalised (E.164) number */
-    protected void register(String mobile, String password) throws Exception {
-        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("fullName", "Test User", "mobile", mobile, "password", password))))
-                .andExpect(status().isAccepted());
+    protected MvcResult registerResult(String mobile, String password) throws Exception {
+        return mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("fullName", "Test User", "mobile", mobile, "password", password)))).andReturn();
     }
 
-    protected MvcResult verifyResult(String mobile, String code) throws Exception {
-        return mvc.perform(post("/api/v1/auth/verify-mobile").contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(Map.of("mobile", mobile, "code", code)))).andReturn();
-    }
-
-    /** Confirms {@code mobile} (E.164) with the last verification code sent to it. */
-    protected void verify(String mobile) throws Exception {
-        MvcResult r = verifyResult(mobile, sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION));
-        if (r.getResponse().getStatus() != 204) {
-            throw new AssertionError("Verification failed: " + r.getResponse().getContentAsString());
+    /**
+     * Registers a member (no SMS code) and returns the access token of the signed-in session.
+     *
+     * @param mobile any accepted spelling
+     */
+    protected String register(String mobile, String password) throws Exception {
+        MvcResult r = registerResult(mobile, password);
+        if (r.getResponse().getStatus() != 201) {
+            throw new AssertionError("Registration failed: " + r.getResponse().getContentAsString());
         }
+        return body(r).get("accessToken").asText();
     }
 
     protected MvcResult loginResult(String mobile, String password) throws Exception {
@@ -119,11 +116,10 @@ public abstract class IntegrationTest {
         return body(result).get("accessToken").asText();
     }
 
-    /** Registers, verifies (which creates the default membership) and logs in a member. */
+    /** Registers (which creates the default membership) and logs in a member. */
     protected Member newMember(String prefix) throws Exception {
         String mobile = uniqueMobile();
         register(mobile, PASSWORD);
-        verify(mobile);
         String token = login(mobile, PASSWORD);
         UUID id = UUID.fromString(jdbc.queryForObject("select id::text from users where mobile = ?", String.class, mobile));
         return new Member(id, mobile, token);
