@@ -1,0 +1,154 @@
+# Continuous deployment: main -> dev automatically -> prod after manual approval.
+#
+# Authentication: GitHub OIDC -> Entra ID workload identity (no stored Azure credentials).
+# Per GitHub environment ("dev", "prod") configure (docs/RUNBOOK.md §1):
+#   variables: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP,
+#              WEBAPP_NAME, SWA_NAME, API_ORIGIN, FRONTEND_ORIGIN
+#   protection: "prod" requires reviewers (manual approval gate).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for azure/login
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false # never cancel a deployment half-way
+
+jobs:
+  build-backend:
+    name: Build API jar (with tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - working-directory: backend
+        run: |
+          ./mvnw -B verify
+          cp target/songbook-api-*.jar ../app.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-jar
+          path: app.jar
+          retention-days: 30
+
+  deploy-dev:
+    name: Deploy to dev
+    needs: build-backend
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-jar
+      - name: Build SPA for this environment
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_ORIGIN }}
+        run: |
+          npm ci
+          npm run build
+          node ../scripts/write-swa-config.mjs "${{ vars.API_ORIGIN }}" dist/staticwebapp.config.json
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy API (Flyway migrates on startup)
+        run: |
+          az webapp deploy --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \
+            --src-path app.jar --type jar --restart true --track-status true
+      - name: Wait for API readiness (actuator JSON, not the App Service parking page)
+        run: |
+          bash scripts/wait-for-api.sh "${{ vars.API_ORIGIN }}" "${{ vars.AZURE_RESOURCE_GROUP }}" "${{ vars.WEBAPP_NAME }}"
+      - name: Deploy SPA (short-lived deployment token fetched with the OIDC login)
+        id: swa-token
+        run: |
+          token=$(az staticwebapp secrets list --name "${{ vars.SWA_NAME }}" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --query properties.apiKey -o tsv)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true
+      - name: Smoke test
+        run: node scripts/smoke-test.mjs "${{ vars.FRONTEND_ORIGIN }}" "${{ vars.API_ORIGIN }}"
+
+  deploy-prod:
+    name: Deploy to prod (staging slot -> swap)
+    needs: [build-backend, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: prod # requires approval (GitHub environment protection rule)
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-jar
+      - name: Build SPA for this environment
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_ORIGIN }}
+        run: |
+          npm ci
+          npm run build
+          node ../scripts/write-swa-config.mjs "${{ vars.API_ORIGIN }}" dist/staticwebapp.config.json
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      # NOTE: the staging slot uses the production database, so Flyway migrations run on startup here,
+      # BEFORE the swap. Migrations must be backward compatible with the running version (RUNBOOK §5).
+      - name: Deploy API to the staging slot
+        run: |
+          az webapp deploy --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \
+            --slot staging --src-path app.jar --type jar --restart true --track-status true
+      - name: Wait for staging readiness (actuator JSON, not the App Service parking page)
+        run: |
+          host=$(az webapp show --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" --slot staging --query defaultHostName -o tsv)
+          bash scripts/wait-for-api.sh "https://$host" "${{ vars.AZURE_RESOURCE_GROUP }}" "${{ vars.WEBAPP_NAME }}" staging
+      - name: Swap staging -> production
+        run: |
+          az webapp deployment slot swap --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --name "${{ vars.WEBAPP_NAME }}" \
+            --slot staging --target-slot production
+      - name: Deploy SPA (short-lived deployment token fetched with the OIDC login)
+        id: swa-token
+        run: |
+          token=$(az staticwebapp secrets list --name "${{ vars.SWA_NAME }}" --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" --query properties.apiKey -o tsv)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.swa-token.outputs.token }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true
+      - name: Smoke test (on failure, roll back with RUNBOOK §6)
+        run: node scripts/smoke-test.mjs "${{ vars.FRONTEND_ORIGIN }}" "${{ vars.API_ORIGIN }}"

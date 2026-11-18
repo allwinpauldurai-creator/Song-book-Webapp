@@ -1,0 +1,69 @@
+# Infrastructure: manual. Shows a what-if preview, then applies infra/main.bicep after approval.
+# Requires the GitHub environment secret PG_ADMIN_PASSWORD and the variables listed in deploy.yml.
+# The OIDC identity needs Owner (or Contributor + Role Based Access Control Administrator) on the
+# resource group, because the template creates role assignments (docs/RUNBOOK.md §1).
+name: Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [dev, prod]
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: infra-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  what-if:
+    name: Preview changes (what-if)
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: What-if
+        env:
+          PG_ADMIN_PASSWORD: ${{ secrets.PG_ADMIN_PASSWORD }}
+        run: |
+          az deployment group what-if --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --parameters "infra/env/${{ inputs.environment }}.bicepparam"
+
+  apply:
+    name: Apply
+    needs: what-if
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }} # prod: approval required before this runs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy
+        env:
+          PG_ADMIN_PASSWORD: ${{ secrets.PG_ADMIN_PASSWORD }}
+        run: |
+          az deployment group create --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "songbook-${{ github.run_number }}" \
+            --parameters "infra/env/${{ inputs.environment }}.bicepparam" \
+            --query properties.outputs -o json > outputs.json
+          {
+            echo "### Deployment outputs (${{ inputs.environment }})"
+            echo '```json'
+            cat outputs.json
+            echo '```'
+            echo "Copy webAppName, staticSiteName, apiOrigin and frontendOrigin into the GitHub environment variables."
+          } >> "$GITHUB_STEP_SUMMARY"

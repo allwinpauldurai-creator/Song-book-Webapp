@@ -1,0 +1,104 @@
+spring:
+  application:
+    name: songbook-api
+  profiles:
+    default: local
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema is owned by Flyway, never by Hibernate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 105MB
+      max-request-size: 110MB
+      file-size-threshold: 1MB
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+        default-page-size: 20
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+songbook:
+  # Calendar dates (book effective/expiry, membership start/end) are evaluated in this zone.
+  business-timezone: ${SONGBOOK_TIMEZONE:UTC}
+  frontend-base-url: ${SONGBOOK_FRONTEND_URL:http://localhost:5173}
+  jobs-enabled: ${SONGBOOK_JOBS_ENABLED:true}
+  cors:
+    allowed-origins: ${SONGBOOK_CORS_ORIGINS:}
+  membership:
+    # PENDING BUSINESS DECISION D1: default length of an automatically created membership.
+    # 0 = no end date. Current default (365) is a placeholder until confirmed.
+    default-duration-days: ${SONGBOOK_MEMBERSHIP_DAYS:365}
+    auto-create-on-mobile-verification: ${SONGBOOK_MEMBERSHIP_AUTO:true}  # decision D2
+    admins-bypass-membership: true                                         # decision D3
+  storage:
+    provider: ${SONGBOOK_STORAGE_PROVIDER:local}
+    local-root-dir: ${SONGBOOK_STORAGE_LOCAL_ROOT:./data/storage}
+    azure-endpoint: ${AZURE_STORAGE_ACCOUNT_ENDPOINT:}
+    covers-container: book-covers
+    pdfs-container: book-pdfs
+    max-pdf-bytes: 104857600     # 100 MB
+    max-image-bytes: 5242880     # 5 MB
+  security:
+    jwt-secret: ${SONGBOOK_JWT_SECRET:}
+    ticket-secret: ${SONGBOOK_TICKET_SECRET:}
+    allow-generated-secrets: false
+    refresh-cookie-secure: true
+  sms:
+    # msg91 = real SMS (needs MSG91 account + DLT templates); log = codes written to the log (local/dev only).
+    provider: ${SONGBOOK_SMS_PROVIDER:log}
+    allow-log-provider: ${SONGBOOK_SMS_ALLOW_LOG:false}
+    otp-ttl: 10m
+    otp-max-attempts: 5
+    resend-cooldown: 60s
+    daily-limit: ${SONGBOOK_SMS_DAILY_LIMIT:500}
+    msg91:
+      auth-key: ${MSG91_AUTH_KEY:}
+      template-verify: ${MSG91_TEMPLATE_VERIFY:}
+      template-reset: ${MSG91_TEMPLATE_RESET:}
+      template-change: ${MSG91_TEMPLATE_CHANGE:}
+  bootstrap:
+    admin-email: ${SONGBOOK_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-mobile: ${SONGBOOK_BOOTSTRAP_ADMIN_MOBILE:}
+    admin-password: ${SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD:}
+    admin-full-name: ${SONGBOOK_BOOTSTRAP_ADMIN_NAME:Administrator}

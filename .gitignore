@@ -1,0 +1,29 @@
+# Build output
+target/
+backend/data/
+node_modules/
+dist/
+*.tsbuildinfo
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Local secrets / env
+.env
+.env.*
+!.env.example
+!frontend/.env.crossorigin
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/test-results-prod/
+frontend/playwright-report-prod/

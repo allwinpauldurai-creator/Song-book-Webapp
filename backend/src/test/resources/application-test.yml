@@ -1,0 +1,23 @@
+songbook:
+  frontend-base-url: http://localhost:5173
+  jobs-enabled: false
+  cors:
+    allowed-origins: http://localhost:5173
+  storage:
+    provider: local
+    local-root-dir: ./target/test-storage
+    max-pdf-bytes: 2097152       # 2 MB keeps the size test fast
+    max-image-bytes: 1048576
+  security:
+    allow-generated-secrets: true
+    rate-limit-enabled: false
+  sms:
+    provider: log                # replaced by CapturingSmsSender in tests
+    allow-log-provider: true
+    resend-cooldown: 0s          # tests request several codes in a row; the cooldown has its own test
+    daily-limit: 100000
+  bootstrap:
+    admin-email: admin@test.local
+    admin-mobile: "+919000000001"
+    admin-password: Admin-Password-123
+    admin-full-name: Test Admin

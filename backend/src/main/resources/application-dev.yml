@@ -1,0 +1,20 @@
+# Azure development environment. All values come from App Service settings / Key Vault references.
+# No defaults on purpose: startup fails if something is missing.
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+songbook:
+  frontend-base-url: ${SONGBOOK_FRONTEND_URL}
+  cors:
+    allowed-origins: ${SONGBOOK_CORS_ORIGINS}
+  storage:
+    provider: ${SONGBOOK_STORAGE_PROVIDER:azure}
+    azure-endpoint: ${AZURE_STORAGE_ACCOUNT_ENDPOINT}
+  security:
+    jwt-secret: ${SONGBOOK_JWT_SECRET}
+    ticket-secret: ${SONGBOOK_TICKET_SECRET}
+  sms:
+    provider: ${SONGBOOK_SMS_PROVIDER}
