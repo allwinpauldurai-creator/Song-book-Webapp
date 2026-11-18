@@ -21,12 +21,12 @@ public final class MembershipDtos {
         }
     }
 
-    public record MembershipResponse(UUID id, UUID userId, String userEmail, String userFullName,
+    public record MembershipResponse(UUID id, UUID userId, String userMobile, String userEmail, String userFullName,
                                      MembershipStatus status, LocalDate startDate, LocalDate endDate,
                                      boolean validToday, String notes, UUID createdBy,
                                      Instant createdAt, Instant updatedAt, Long version) {
         public static MembershipResponse from(Membership m, LocalDate today) {
-            return new MembershipResponse(m.getId(), m.getUser().getId(), m.getUser().getEmail(),
+            return new MembershipResponse(m.getId(), m.getUser().getId(), m.getUser().getMobile(), m.getUser().getEmail(),
                     m.getUser().getFullName(), m.getStatus(), m.getStartDate(), m.getEndDate(), m.isValidOn(today),
                     m.getNotes(), m.getCreatedBy(), m.getCreatedAt(), m.getUpdatedAt(), m.getVersion());
         }

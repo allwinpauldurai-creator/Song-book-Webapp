@@ -15,9 +15,10 @@ export interface AdminStats {
 export interface AdminUserSummary {
   id: string;
   fullName: string;
-  email: string;
+  mobile?: string | null;
+  mobileVerified: boolean;
+  email?: string | null;
   accountStatus: AccountStatus;
-  emailVerified: boolean;
   roles: Role[];
   createdAt: string;
 }
@@ -25,7 +26,8 @@ export interface AdminUserSummary {
 export interface AdminMembership {
   id: string;
   userId: string;
-  userEmail: string;
+  userMobile?: string | null;
+  userEmail?: string | null;
   userFullName: string;
   status: MembershipStatus;
   startDate: string;
@@ -39,7 +41,7 @@ export interface AdminMembership {
 }
 
 export interface AdminUserDetail extends AdminUserSummary {
-  emailVerifiedAt?: string | null;
+  mobileVerifiedAt?: string | null;
   lockedUntil?: string | null;
   updatedAt: string;
   version: number;

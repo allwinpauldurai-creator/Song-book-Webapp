@@ -48,7 +48,9 @@ export default function MembershipDialog({
   useEffect(() => {
     if (!open) return;
     setUser(
-      membership ? { id: membership.userId, fullName: membership.userFullName, email: membership.userEmail } : (fixedUser ?? null),
+      membership
+        ? { id: membership.userId, fullName: membership.userFullName, mobile: membership.userMobile, email: membership.userEmail }
+        : (fixedUser ?? null),
     );
     setStatus(membership?.status ?? 'ACTIVE');
     setStartDate(membership?.startDate ?? todayIso());

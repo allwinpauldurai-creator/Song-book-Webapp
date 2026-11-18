@@ -68,7 +68,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 API + "/auth/register",
-                                API + "/auth/verify-email",
+                                API + "/auth/verify-mobile",
                                 API + "/auth/resend-verification",
                                 API + "/auth/login",
                                 API + "/auth/refresh",

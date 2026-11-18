@@ -30,10 +30,10 @@ export default function PasswordField(props: TextFieldProps) {
   );
 }
 
-/** Client-side mirror of the server password policy (10–128 chars, not equal to email). */
-export function passwordProblem(password: string, email?: string): string | null {
+/** Client-side mirror of the server password policy (10–128 chars, not equal to the mobile number). */
+export function passwordProblem(password: string, mobile?: string | null): string | null {
   if (password.length < 10) return 'Use at least 10 characters.';
   if (password.length > 128) return 'Use at most 128 characters.';
-  if (email && password.trim().toLowerCase() === email.trim().toLowerCase()) return 'Password must not be your email address.';
+  if (mobile && password.trim().toLowerCase() === mobile.trim().toLowerCase()) return 'Password must not be your mobile number.';
   return null;
 }

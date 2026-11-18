@@ -32,9 +32,27 @@ export const adminApi = {
   users: (q: Paging & { q?: string; status?: AccountStatus | ''; role?: Role | '' }) =>
     api<PageResponse<AdminUserSummary>>('/admin/users', { query: { ...q } }),
   user: (id: string) => api<AdminUserDetail>(`/admin/users/${enc(id)}`),
-  createUser: (body: { fullName: string; email: string; password: string; roles: Role[]; emailVerified: boolean }) =>
+  createUser: (body: {
+    fullName: string;
+    mobile: string;
+    email?: string | null;
+    password: string;
+    roles: Role[];
+    mobileVerified: boolean;
+  }) =>
     api<AdminUserDetail>('/admin/users', { method: 'POST', body }),
-  updateUser: (id: string, body: { fullName: string; accountStatus: AccountStatus; roles: Role[]; version: number }) =>
+  updateUser: (
+    id: string,
+    body: {
+      fullName: string;
+      mobile: string;
+      mobileVerified: boolean;
+      email?: string | null;
+      accountStatus: AccountStatus;
+      roles: Role[];
+      version: number;
+    },
+  ) =>
     api<AdminUserDetail>(`/admin/users/${enc(id)}`, { method: 'PUT', body }),
 
   // ---- memberships

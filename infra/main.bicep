@@ -59,8 +59,17 @@ param businessTimezone string = 'UTC'
 @description('Default membership length in days; 0 = no end date (decision D1).')
 param membershipDays int = 365
 
-@description('Sender address for account emails (must be a verified Azure Communication Services sender).')
-param mailFrom string
+@description('SMS provider for one-time codes: msg91 (real SMS) or log (codes written to the app log; dev only).')
+@allowed(['msg91', 'log'])
+param smsProvider string = environmentName == 'prod' ? 'msg91' : 'log'
+
+@description('MSG91 DLT template ids (each template contains ##otp##). Required when smsProvider is msg91.')
+param msg91TemplateVerify string = ''
+param msg91TemplateReset string = ''
+param msg91TemplateChange string = ''
+
+@description('Maximum SMS codes sent in any 24 hours across all users (cost guard).')
+param smsDailyLimit int = 500
 
 @description('Blob soft-delete / container soft-delete retention in days.')
 param blobSoftDeleteDays int = 14
@@ -114,8 +123,8 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// jwt-secret, ticket-secret, mail-username and mail-password are set by an operator (RUNBOOK §3):
-// Bicep has no cryptographic random generator and must not hold mail credentials.
+// jwt-secret, ticket-secret and msg91-auth-key are set by an operator (RUNBOOK §3):
+// Bicep has no cryptographic random generator and must not hold the SMS provider key.
 resource dbPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: vault
   name: 'db-password'
@@ -251,7 +260,22 @@ var appInsightsAgentConfig = string({
 
 func kvRef(vaultName string, secretName string) string => '@Microsoft.KeyVault(VaultName=${vaultName};SecretName=${secretName})'
 
-var appSettings = [
+// The MSG91 key is only referenced when MSG91 is used, so the log provider runs without that secret.
+var smsSettings = smsProvider == 'msg91'
+  ? [
+      { name: 'SONGBOOK_SMS_PROVIDER', value: 'msg91' }
+      { name: 'SONGBOOK_SMS_ALLOW_LOG', value: 'false' }
+      { name: 'MSG91_AUTH_KEY', value: kvRef(vault.name, 'msg91-auth-key') }
+      { name: 'MSG91_TEMPLATE_VERIFY', value: msg91TemplateVerify }
+      { name: 'MSG91_TEMPLATE_RESET', value: msg91TemplateReset }
+      { name: 'MSG91_TEMPLATE_CHANGE', value: msg91TemplateChange }
+    ]
+  : [
+      { name: 'SONGBOOK_SMS_PROVIDER', value: 'log' }
+      { name: 'SONGBOOK_SMS_ALLOW_LOG', value: 'true' }
+    ]
+
+var appSettings = concat([
   { name: 'SPRING_PROFILES_ACTIVE', value: 'prod' }
   { name: 'SERVER_PORT', value: '8080' }
   { name: 'WEBSITES_PORT', value: '8080' }
@@ -266,15 +290,11 @@ var appSettings = [
   { name: 'SONGBOOK_MEMBERSHIP_DAYS', value: string(membershipDays) }
   { name: 'SONGBOOK_STORAGE_PROVIDER', value: 'azure' }
   { name: 'AZURE_STORAGE_ACCOUNT_ENDPOINT', value: storage.properties.primaryEndpoints.blob }
-  { name: 'SONGBOOK_MAIL_FROM', value: mailFrom }
-  { name: 'MAIL_HOST', value: 'smtp.azurecomm.net' }
-  { name: 'MAIL_PORT', value: '587' }
-  { name: 'MAIL_USERNAME', value: kvRef(vault.name, 'mail-username') }
-  { name: 'MAIL_PASSWORD', value: kvRef(vault.name, 'mail-password') }
+  { name: 'SONGBOOK_SMS_DAILY_LIMIT', value: string(smsDailyLimit) }
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
   { name: 'ApplicationInsightsAgent_EXTENSION_VERSION', value: '~3' }
   { name: 'APPLICATIONINSIGHTS_CONFIGURATION_CONTENT', value: appInsightsAgentConfig }
-]
+], smsSettings)
 
 var siteConfig = {
   linuxFxVersion: 'JAVA|21-java21'

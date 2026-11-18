@@ -20,9 +20,9 @@ class AccessTicketServiceTest {
                 new AppProperties.Membership(365, true, true),
                 new AppProperties.Storage("local", "x", null, "c", "p", 1, 1, 100),
                 new AppProperties.Security(null, null, true, "iss", "aud", Duration.ofMinutes(15),
-                        Duration.ofDays(14), true, Duration.ofSeconds(60), Duration.ofHours(24), Duration.ofMinutes(30),
-                        5, Duration.ofMinutes(15), false),
-                new AppProperties.Mail("x@y"), new AppProperties.Bootstrap(null, null, null), false);
+                        Duration.ofDays(14), true, Duration.ofSeconds(60), 5, Duration.ofMinutes(15), false),
+                new AppProperties.Sms("log", true, Duration.ofMinutes(10), 5, Duration.ofSeconds(60), 500, null),
+                new AppProperties.Bootstrap(null, null, null, null), false);
     }
 
     private final AppProperties properties = props();

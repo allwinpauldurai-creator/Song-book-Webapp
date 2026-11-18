@@ -20,9 +20,13 @@ public final class UserSpecifications {
         Specification<User> spec = (root, query, cb) -> cb.conjunction();
         if (q != null && !q.isBlank()) {
             String pattern = PageableUtils.likePattern(q);
+            // Mobiles are stored as +91XXXXXXXXXX: ignore spaces/dashes/brackets typed in the search box.
+            String digits = q.replaceAll("[\\s\\-()]", "");
+            String mobilePattern = PageableUtils.likePattern(digits.isEmpty() ? q : digits);
             spec = spec.and((root, query, cb) -> cb.or(
                     cb.like(cb.lower(root.get("fullName")), pattern, '\\'),
-                    cb.like(root.get("email"), pattern, '\\')));
+                    cb.like(root.get("email"), pattern, '\\'),
+                    cb.like(root.get("mobile"), mobilePattern, '\\')));
         }
         if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("accountStatus"), status));

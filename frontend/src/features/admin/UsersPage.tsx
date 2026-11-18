@@ -34,6 +34,8 @@ import type { Role } from '../../types/api';
 import { EmptyState } from '../../components/common';
 import { formatDate } from '../../utils/format';
 import PasswordField, { passwordProblem } from '../auth/PasswordField';
+import MobileField from '../auth/MobileField';
+import { formatMobile, normalizeMobile } from '../../utils/mobile';
 import { AccountChip, ACCOUNT_STATUSES, AdminError, adminErrorMessage, PageHeader, Pager, titleCase } from './common';
 import { useUrlFilters } from './useUrlFilters';
 
@@ -41,14 +43,17 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [admin, setAdmin] = useState(false);
   const [verified, setVerified] = useState(true);
+  const e164 = normalizeMobile(mobile);
 
   useEffect(() => {
     if (open) {
       setFullName('');
+      setMobile('');
       setEmail('');
       setPassword('');
       setAdmin(false);
@@ -60,10 +65,11 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
     mutationFn: () =>
       adminApi.createUser({
         fullName: fullName.trim(),
-        email: email.trim(),
+        mobile: e164!,
+        email: email.trim() || null,
         password,
         roles: admin ? ['MEMBER', 'ADMIN'] : ['MEMBER'],
-        emailVerified: verified,
+        mobileVerified: verified,
       }),
     onSuccess: (u) => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.all });
@@ -72,8 +78,8 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
     },
   });
   const fields = create.error instanceof ApiError ? create.error.fieldMap() : {};
-  const pwProblem = password ? passwordProblem(password, email) : null;
-  const canSave = fullName.trim() && email.trim() && password && !pwProblem && !create.isPending;
+  const pwProblem = password ? passwordProblem(password, e164) : null;
+  const canSave = fullName.trim() && e164 && password && !pwProblem && !create.isPending;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -88,12 +94,13 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
           {create.isError && !Object.keys(fields).length && <Alert severity="error">{adminErrorMessage(create.error)}</Alert>}
           <TextField label="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoFocus
             error={!!fields.fullName} helperText={fields.fullName ?? ' '} slotProps={{ htmlInput: { maxLength: 150 } }} />
-          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-            error={!!fields.email} helperText={fields.email ?? ' '} slotProps={{ htmlInput: { maxLength: 254 } }} />
+          <MobileField value={mobile} onChange={setMobile} required showError={mobile.length > 0} serverError={fields.mobile} />
+          <TextField label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            error={!!fields.email} helperText={fields.email ?? 'Contact only.'} slotProps={{ htmlInput: { maxLength: 254 } }} />
           <PasswordField label="Initial password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required
             error={!!pwProblem || !!fields.password} helperText={fields.password ?? pwProblem ?? 'Share it securely; the user can change it in their profile.'} />
           <FormGroup>
-            <FormControlLabel control={<Checkbox checked={verified} onChange={(e) => setVerified(e.target.checked)} />} label="Email already verified (you vouch for the address)" />
+            <FormControlLabel control={<Checkbox checked={verified} onChange={(e) => setVerified(e.target.checked)} />} label="Mobile number already verified (you vouch for it; no SMS code needed)" />
             <FormControlLabel control={<Checkbox checked={admin} onChange={(e) => setAdmin(e.target.checked)} />} label="Administrator" />
           </FormGroup>
           {verified && <Alert severity="info">Admin-created users get no membership automatically. Add one on the user page.</Alert>}
@@ -130,7 +137,7 @@ export default function UsersPage() {
         actions={<Button variant="contained" startIcon={<PersonAddIcon />} onClick={() => setCreating(true)}>New user</Button>}
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <TextField size="small" type="search" label="Search name or email" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <TextField size="small" type="search" label="Search name, mobile or email" value={search} onChange={(e) => setSearch(e.target.value)} />
         <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel id="u-status">Status</InputLabel>
           <Select labelId="u-status" label="Status" value={values.status} onChange={(e) => set({ status: e.target.value })}>
@@ -157,7 +164,8 @@ export default function UsersPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
+                  <TableCell>Mobile</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Roles</TableCell>
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Created</TableCell>
@@ -165,16 +173,17 @@ export default function UsersPage() {
               </TableHead>
               <TableBody>
                 {users.isPending
-                  ? <TableRow><TableCell colSpan={5}>Loading…</TableCell></TableRow>
+                  ? <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
                   : users.data.content.map((u) => (
                       <TableRow key={u.id} hover>
                         <TableCell>
                           <Link component={RouterLink} to={`/admin/users/${u.id}`} sx={{ fontWeight: 600 }}>{u.fullName}</Link>
                         </TableCell>
-                        <TableCell sx={{ overflowWrap: 'anywhere' }}>
-                          {u.email}
-                          {!u.emailVerified && <Chip size="small" label="Unverified" variant="outlined" color="warning" sx={{ ml: 1 }} />}
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          {formatMobile(u.mobile) || '—'}
+                          {!u.mobileVerified && <Chip size="small" label="Unverified" variant="outlined" color="warning" sx={{ ml: 1 }} />}
                         </TableCell>
+                        <TableCell sx={{ overflowWrap: 'anywhere', display: { xs: 'none', md: 'table-cell' } }}>{u.email}</TableCell>
                         <TableCell><AccountChip status={u.accountStatus} /></TableCell>
                         <TableCell>{u.roles.map((r: Role) => titleCase(r)).join(', ')}</TableCell>
                         <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{formatDate(u.createdAt)}</TableCell>

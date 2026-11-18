@@ -1,5 +1,6 @@
 package com.example.songbook.support;
 
+import com.example.songbook.auth.entity.OtpPurpose;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -24,6 +25,8 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,8 +43,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public abstract class IntegrationTest {
 
     protected static final String ADMIN_EMAIL = "admin@test.local";
+    protected static final String ADMIN_MOBILE = "+919000000001";
     protected static final String ADMIN_PASSWORD = "Admin-Password-123";
     protected static final String PASSWORD = "Member-Password-123";
+
+    /** Random start so reruns against the same embedded database do not collide. */
+    private static final AtomicLong MOBILE_SEQ =
+            new AtomicLong(100_000_000L + ThreadLocalRandom.current().nextLong(800_000_000L));
 
     @Autowired
     protected MockMvc mvc;
@@ -53,7 +61,12 @@ public abstract class IntegrationTest {
     protected JdbcTemplate jdbc;
 
     @Autowired
-    protected TestInfrastructure.CapturingEmailSender mail;
+    protected TestInfrastructure.CapturingSmsSender sms;
+
+    /** A fresh Indian mobile number in E.164 form, e.g. +919123456789. */
+    protected static String uniqueMobile() {
+        return "+919" + String.format("%09d", MOBILE_SEQ.incrementAndGet() % 1_000_000_000L);
+    }
 
     protected static String uniqueEmail(String prefix) {
         return prefix + "-" + UUID.randomUUID().toString().substring(0, 8) + "@test.local";
@@ -73,25 +86,33 @@ public abstract class IntegrationTest {
 
     // ------------------------------------------------------------------ users
 
-    protected void register(String email, String password) throws Exception {
+    /** @param mobile any accepted spelling; the SMS is captured under the normalised (E.164) number */
+    protected void register(String mobile, String password) throws Exception {
         mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("fullName", "Test User", "email", email, "password", password))))
+                        .content(toJson(Map.of("fullName", "Test User", "mobile", mobile, "password", password))))
                 .andExpect(status().isAccepted());
     }
 
-    protected void verify(String email) throws Exception {
-        mvc.perform(post("/api/v1/auth/verify-email").contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("token", mail.lastToken(email, "Verify")))))
-                .andExpect(status().isNoContent());
+    protected MvcResult verifyResult(String mobile, String code) throws Exception {
+        return mvc.perform(post("/api/v1/auth/verify-mobile").contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("mobile", mobile, "code", code)))).andReturn();
     }
 
-    protected MvcResult loginResult(String email, String password) throws Exception {
+    /** Confirms {@code mobile} (E.164) with the last verification code sent to it. */
+    protected void verify(String mobile) throws Exception {
+        MvcResult r = verifyResult(mobile, sms.lastCode(mobile, OtpPurpose.MOBILE_VERIFICATION));
+        if (r.getResponse().getStatus() != 204) {
+            throw new AssertionError("Verification failed: " + r.getResponse().getContentAsString());
+        }
+    }
+
+    protected MvcResult loginResult(String mobile, String password) throws Exception {
         return mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content(toJson(Map.of("email", email, "password", password)))).andReturn();
+                .content(toJson(Map.of("mobile", mobile, "password", password)))).andReturn();
     }
 
-    protected String login(String email, String password) throws Exception {
-        MvcResult result = loginResult(email, password);
+    protected String login(String mobile, String password) throws Exception {
+        MvcResult result = loginResult(mobile, password);
         if (result.getResponse().getStatus() != 200) {
             throw new AssertionError("Login failed: " + result.getResponse().getContentAsString());
         }
@@ -100,19 +121,19 @@ public abstract class IntegrationTest {
 
     /** Registers, verifies (which creates the default membership) and logs in a member. */
     protected Member newMember(String prefix) throws Exception {
-        String email = uniqueEmail(prefix);
-        register(email, PASSWORD);
-        verify(email);
-        String token = login(email, PASSWORD);
-        UUID id = UUID.fromString(jdbc.queryForObject("select id::text from users where email = ?", String.class, email));
-        return new Member(id, email, token);
+        String mobile = uniqueMobile();
+        register(mobile, PASSWORD);
+        verify(mobile);
+        String token = login(mobile, PASSWORD);
+        UUID id = UUID.fromString(jdbc.queryForObject("select id::text from users where mobile = ?", String.class, mobile));
+        return new Member(id, mobile, token);
     }
 
-    protected record Member(UUID id, String email, String token) {
+    protected record Member(UUID id, String mobile, String token) {
     }
 
     protected String adminToken() throws Exception {
-        return login(ADMIN_EMAIL, ADMIN_PASSWORD);
+        return login(ADMIN_MOBILE, ADMIN_PASSWORD);
     }
 
     // ------------------------------------------------------------------ books

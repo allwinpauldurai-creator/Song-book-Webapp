@@ -72,17 +72,17 @@ public class MembershipService {
                 .orElse(null);
     }
 
-    /** Creates the configured default membership (after email verification), unless one is already active. */
+    /** Creates the configured default membership (after mobile verification), unless one is already active. */
     @Transactional
     public void createDefaultIfAbsent(User user) {
-        if (!config.autoCreateOnEmailVerification()
+        if (!config.autoCreateOnMobileVerification()
                 || memberships.findByUserIdAndStatus(user.getId(), MembershipStatus.ACTIVE).isPresent()) {
             return;
         }
         LocalDate start = today();
         LocalDate end = config.defaultDurationDays() == 0 ? null : start.plusDays(config.defaultDurationDays());
         Membership m = memberships.save(new Membership(user, start, end, MembershipStatus.ACTIVE,
-                "Created automatically after email verification", null));
+                "Created automatically after mobile verification", null));
         audit.record(null, AuditActions.MEMBERSHIP_CREATED, "MEMBERSHIP", m.getId(),
                 Map.of("userId", user.getId(), "automatic", true));
     }

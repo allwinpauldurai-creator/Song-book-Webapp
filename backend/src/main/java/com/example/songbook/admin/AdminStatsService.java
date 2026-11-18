@@ -43,7 +43,7 @@ public class AdminStatsService {
         Map<AccountStatus, Long> usersByStatus = grouped(AccountStatus.class,
                 "select u.accountStatus, count(u) from User u group by u.accountStatus");
         long totalUsers = usersByStatus.values().stream().mapToLong(Long::longValue).sum();
-        long unverified = em.createQuery("select count(u) from User u where u.emailVerified = false", Long.class)
+        long unverified = em.createQuery("select count(u) from User u where u.mobileVerified = false", Long.class)
                 .getSingleResult();
 
         long validMemberships = em.createQuery("""

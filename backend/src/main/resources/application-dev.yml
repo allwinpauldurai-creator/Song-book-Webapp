@@ -16,5 +16,5 @@ songbook:
   security:
     jwt-secret: ${SONGBOOK_JWT_SECRET}
     ticket-secret: ${SONGBOOK_TICKET_SECRET}
-  mail:
-    from: ${SONGBOOK_MAIL_FROM}
+  sms:
+    provider: ${SONGBOOK_SMS_PROVIDER}

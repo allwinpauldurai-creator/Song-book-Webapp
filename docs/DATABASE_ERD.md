@@ -7,7 +7,7 @@ erDiagram
     users ||--o{ user_roles : has
     roles ||--o{ user_roles : grants
     users ||--o{ memberships : holds
-    users ||--o{ user_tokens : "verification/reset"
+    users ||--o{ otp_codes : "SMS codes (sign-up, reset, mobile change)"
     users ||--o{ refresh_tokens : sessions
     book_categories ||--o{ books : classifies
     file_assets ||--o| books : cover
@@ -22,11 +22,12 @@ erDiagram
 
     users {
       uuid id PK
-      varchar email UK "lower-case, trimmed"
+      varchar mobile UK "E.164, sign-in identity (V2)"
+      bool mobile_verified
+      timestamptz mobile_verified_at
+      varchar email UK "optional contact, lower-case, trimmed"
       varchar password_hash
       varchar account_status "ACTIVE|DISABLED|LOCKED"
-      bool email_verified
-      timestamptz email_verified_at
       int failed_login_count
       timestamptz locked_until
       bigint version
@@ -70,10 +71,11 @@ erDiagram
 | Table | Constraint | Purpose |
 |-------|-----------|---------|
 | users | `email = lower(btrim(email))`, unique | Normalized unique email |
-| users | `email_verified = false OR email_verified_at IS NOT NULL` | Consistent verification state |
+| users | `mobile ~ '^\+[1-9][0-9]{7,14}$'`, unique; `mobile_verified = false OR (mobile_verified_at IS NOT NULL AND mobile IS NOT NULL)` | E.164 mobile, consistent verification state (V2). `email_verified*` columns from V1 remain but are unused |
 | roles | name in (MEMBER, ADMIN) | No `GUEST` role in DB |
 | memberships | `end_date >= start_date`; partial unique `(user_id) WHERE status='ACTIVE'` | Valid range; one active membership |
-| user_tokens / refresh_tokens | unique `token_hash` (SHA-256 hex) | Raw tokens never stored |
+| refresh_tokens | unique `token_hash` (SHA-256 hex) | Raw tokens never stored |
+| otp_codes | `code_hash` = SHA-256 of `userId:purpose:code` (not unique: 6-digit codes repeat across users); `attempts >= 0` | Raw SMS codes never stored; `user_tokens` was dropped in V2 |
 | book_categories | unique `lower(name)` | Case-insensitive uniqueness |
 | file_assets | `file_size > 0`; content_type allow-list; unique (container, blob) | No empty/unknown files |
 | books | `expiry_date >= effective_date`; PUBLISHED ⇒ `current_version_id` not null | Valid window; no published book without PDF |

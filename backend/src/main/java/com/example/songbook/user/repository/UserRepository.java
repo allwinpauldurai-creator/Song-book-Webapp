@@ -11,6 +11,11 @@ import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificationExecutor<User> {
 
+    /** @param e164Mobile normalised with {@code PhoneNumbers.normalize} */
+    Optional<User> findByMobile(String e164Mobile);
+
+    boolean existsByMobile(String e164Mobile);
+
     Optional<User> findByEmail(String normalizedEmail);
 
     boolean existsByEmail(String normalizedEmail);

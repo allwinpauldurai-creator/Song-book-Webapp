@@ -6,7 +6,7 @@
 - Public registration always assigns `MEMBER` only; request DTOs have no role/status fields.
 - Admin role changes go through `/admin/users/{id}`; the service refuses to demote/disable the
   last active admin (row-locked count check inside the transaction).
-- First admin is created by `AdminBootstrap` from `SONGBOOK_BOOTSTRAP_ADMIN_EMAIL` / `_PASSWORD` when no admin exists — never via the API. Remove those settings after first start.
+- First admin is created by `AdminBootstrap` from `SONGBOOK_BOOTSTRAP_ADMIN_MOBILE` / `_PASSWORD` (optional `_EMAIL`) when no admin exists — never via the API. The same settings attach a mobile to an existing email-only admin. Remove them after first start.
 
 ## 2. Authentication (Phase 3)
 
@@ -18,9 +18,12 @@
 | CSRF | API is bearer-token based (CSRF disabled for it). The cookie-authenticated `/auth/refresh` and `/auth/logout` additionally require an allowed `Origin` header |
 | Logout | Revokes refresh family, clears cookie. Access token expires naturally (≤15 min) |
 | Disabled user / role change | Every request re-reads the user from the DB (`DatabaseJwtAuthenticationConverter`), so disabling a user or revoking ADMIN takes effect immediately |
-| Email verification / reset | 256-bit random token, SHA-256 stored in `user_tokens`, 24 h / 30 min expiry, single-use (`used_at`) |
+| Identity | Mobile number (E.164, normalised server-side by `PhoneNumbers`) + password. Email is optional contact data, never used to sign in |
+| SMS codes (sign-up, reset, mobile change) | 6 digits from `SecureRandom`; only SHA-256 of `userId:purpose:code` stored in `otp_codes`; 10 min expiry; single-use; burned after 5 wrong guesses (attempts committed even when the request fails); newest code only; 60 s resend cooldown; purpose-bound (a sign-up code cannot reset a password); sent after commit and never logged except by the dev-only `log` provider, which refuses to start unless `songbook.sms.allow-log-provider=true` |
+| SMS cost guard | `songbook.sms.daily-limit` codes per 24 h across all users (counted in the DB, so it holds across instances and restarts) → 429 |
+| Mobile change | Current password required; code sent to the **new** number; old number keeps working until confirmed; number must be unused (`MOBILE_IN_USE`); audited as `MOBILE_CHANGED` with masked numbers |
 | Enumeration | Register/forgot/resend always return 202 with identical body |
-| Rate limiting | In-memory sliding window (`RateLimiter`) per IP + per email: login 20/5 min per IP and 10/5 min per email; register 5/10 min per IP; forgot/resend 3/15 min per email. Per-instance only: move to Redis or Front Door WAF if scaled to more than one instance |
+| Rate limiting | In-memory sliding window (`RateLimiter`) per IP + per mobile: login 20/5 min per IP and 10/5 min per mobile; register 5/10 min per IP; forgot/resend 3/15 min per mobile; code checks 20/15 min per IP and 10/15 min per mobile. Per-instance only: move to Redis or Front Door WAF if scaled to more than one instance |
 | Lockout | 5 consecutive failures → `locked_until = now + 15 min` |
 
 ## 3. Authorization
@@ -34,7 +37,7 @@
 
 ```
 account_status == ACTIVE && (locked_until is null || past)
-&& email_verified
+&& mobile_verified
 && (isAdmin || exists membership: MembershipValidity.isValid(status, start, end, today))
 && BookAvailability.isAvailable(status, effective, expiry, today)
 && book.current_version_id != null

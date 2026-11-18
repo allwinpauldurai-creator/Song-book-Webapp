@@ -36,9 +36,12 @@ export interface MembershipSummary {
 export interface Me {
   id: string;
   fullName: string;
-  email: string;
+  /** E.164, e.g. +919876543210. Missing only on accounts created before sign-in moved to mobile numbers. */
+  mobile?: string | null;
+  mobileVerified: boolean;
+  /** Optional contact address; not used to sign in. */
+  email?: string | null;
   roles: Role[];
-  emailVerified: boolean;
   membership?: MembershipSummary | null;
 }
 

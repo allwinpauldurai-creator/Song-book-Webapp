@@ -25,6 +25,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useAuth } from '../contexts/AuthContext';
 import { loginPath } from '../utils/redirect';
+import { formatMobile } from '../utils/mobile';
 
 function HeaderSearch() {
   const navigate = useNavigate();
@@ -90,7 +91,7 @@ function UserMenu() {
             {user.fullName}
           </Typography>
           <Typography variant="body2" color="text.secondary" noWrap>
-            {user.email}
+            {formatMobile(user.mobile) || user.email}
           </Typography>
         </Box>
         <Divider />
@@ -140,7 +141,7 @@ function UserMenu() {
 export default function Layout() {
   const { status } = useAuth();
   const location = useLocation();
-  const onAuthPage = /^\/(login|register|forgot-password|reset-password|verify-email)/.test(location.pathname);
+  const onAuthPage = /^\/(login|register|forgot-password|verify-mobile)/.test(location.pathname);
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>

@@ -466,9 +466,9 @@ function PageNav({ page, numPages, goTo }: { page: number; numPages: number; goT
 }
 
 const ELIGIBILITY: Record<string, { title: string; body: string; action?: { label: string; to: string } }> = {
-  EMAIL_NOT_VERIFIED: {
-    title: 'Verify your email to read',
-    body: 'Open the verification link we emailed you, or request a new one from your dashboard.',
+  MOBILE_NOT_VERIFIED: {
+    title: 'Confirm your mobile number to read',
+    body: 'Request an SMS code from your dashboard and enter it to confirm your number.',
     action: { label: 'Go to my dashboard', to: '/me' },
   },
   MEMBERSHIP_INVALID: {

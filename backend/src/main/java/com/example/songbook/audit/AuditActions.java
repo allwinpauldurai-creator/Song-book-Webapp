@@ -7,7 +7,8 @@ public final class AuditActions {
     }
 
     public static final String USER_REGISTERED = "USER_REGISTERED";
-    public static final String EMAIL_VERIFIED = "EMAIL_VERIFIED";
+    public static final String MOBILE_VERIFIED = "MOBILE_VERIFIED";
+    public static final String MOBILE_CHANGED = "MOBILE_CHANGED";
     public static final String LOGIN_SUCCEEDED = "LOGIN_SUCCEEDED";
     public static final String LOGIN_FAILED = "LOGIN_FAILED";
     public static final String ACCOUNT_TEMPORARILY_LOCKED = "ACCOUNT_TEMPORARILY_LOCKED";

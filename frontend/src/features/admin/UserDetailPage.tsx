@@ -38,6 +38,8 @@ import type { Role } from '../../types/api';
 import type { AccountStatus, AdminMembership, AdminUserDetail } from '../../types/admin';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDate } from '../../utils/format';
+import { formatMobile, normalizeMobile } from '../../utils/mobile';
+import MobileField from '../auth/MobileField';
 import { AccountChip, ACCOUNT_STATUSES, AdminError, adminErrorMessage, MembershipChip, PageHeader, titleCase } from './common';
 import MembershipDialog from './MembershipDialog';
 
@@ -45,18 +47,33 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
   const queryClient = useQueryClient();
   const { user: me, reloadUser } = useAuth();
   const [fullName, setFullName] = useState(user.fullName);
+  const [mobile, setMobile] = useState(user.mobile ?? '');
+  const [mobileVerified, setMobileVerified] = useState(user.mobileVerified);
+  const [email, setEmail] = useState(user.email ?? '');
   const [status, setStatus] = useState<AccountStatus>(user.accountStatus);
   const [isAdmin, setIsAdmin] = useState(user.roles.includes('ADMIN'));
   useEffect(() => {
     setFullName(user.fullName);
+    setMobile(user.mobile ?? '');
+    setMobileVerified(user.mobileVerified);
+    setEmail(user.email ?? '');
     setStatus(user.accountStatus);
     setIsAdmin(user.roles.includes('ADMIN'));
   }, [user]);
+  const e164 = normalizeMobile(mobile);
 
   const save = useMutation({
     mutationFn: () => {
       const roles: Role[] = isAdmin ? ['MEMBER', 'ADMIN'] : ['MEMBER'];
-      return adminApi.updateUser(user.id, { fullName: fullName.trim(), accountStatus: status, roles, version: user.version });
+      return adminApi.updateUser(user.id, {
+        fullName: fullName.trim(),
+        mobile: e164!,
+        mobileVerified,
+        email: email.trim() || null,
+        accountStatus: status,
+        roles,
+        version: user.version,
+      });
     },
     onSuccess: (updated) => {
       queryClient.setQueryData(adminKeys.user(user.id), updated);
@@ -66,12 +83,19 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
     },
   });
   const fields = save.error instanceof ApiError ? save.error.fieldMap() : {};
-  const dirty = fullName.trim() !== user.fullName || status !== user.accountStatus || isAdmin !== user.roles.includes('ADMIN');
+  const dirty =
+    fullName.trim() !== user.fullName ||
+    e164 !== (user.mobile ?? null) ||
+    mobileVerified !== user.mobileVerified ||
+    email.trim() !== (user.email ?? '') ||
+    status !== user.accountStatus ||
+    isAdmin !== user.roles.includes('ADMIN');
   const self = user.id === me?.id;
+  const valid = !!fullName.trim() && !!e164;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (dirty && fullName.trim()) save.mutate();
+    if (dirty && valid) save.mutate();
   };
 
   return (
@@ -84,6 +108,14 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
             {save.isSuccess && !dirty && <Alert severity="success">Saved.</Alert>}
             <TextField label="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required
               error={!fullName.trim() || !!fields.fullName} helperText={fields.fullName ?? ' '} slotProps={{ htmlInput: { maxLength: 150 } }} />
+            <MobileField value={mobile} onChange={setMobile} required showError serverError={fields.mobile} />
+            <FormControlLabel
+              control={<Checkbox checked={mobileVerified} onChange={(e) => setMobileVerified(e.target.checked)} />}
+              label="Mobile verified (you vouch for it; otherwise the user confirms it by SMS)"
+              sx={{ mt: -1 }}
+            />
+            <TextField label="Email (optional)" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              error={!!fields.email} helperText={fields.email ?? 'Contact only.'} slotProps={{ htmlInput: { maxLength: 254 } }} />
             <FormControl fullWidth>
               <InputLabel id="acct-status">Account status</InputLabel>
               <Select labelId="acct-status" label="Account status" value={status} onChange={(e) => setStatus(e.target.value as AccountStatus)}>
@@ -101,7 +133,7 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
               <Alert severity="warning">You are editing your own account. Disabling it or removing your admin role takes effect immediately.</Alert>
             )}
             <Box>
-              <Button type="submit" variant="contained" disabled={!dirty || !fullName.trim() || save.isPending}>
+              <Button type="submit" variant="contained" disabled={!dirty || !valid || save.isPending}>
                 {save.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </Box>
@@ -161,7 +193,7 @@ function Memberships({ user }: { user: AdminUserDetail }) {
       <MembershipDialog
         open={dialog.open}
         membership={dialog.membership}
-        fixedUser={{ id: user.id, fullName: user.fullName, email: user.email }}
+        fixedUser={{ id: user.id, fullName: user.fullName, mobile: user.mobile, email: user.email }}
         onClose={() => setDialog({ open: false, membership: null })}
       />
     </Card>
@@ -189,7 +221,9 @@ export default function UserDetailPage() {
             title={u.fullName}
             subtitle={
               <>
-                {u.email} · {u.emailVerified ? `verified ${u.emailVerifiedAt ? formatDate(u.emailVerifiedAt) : ''}` : 'email not verified'} · joined {formatDate(u.createdAt)}
+                {formatMobile(u.mobile) || 'No mobile number'} ·{' '}
+                {u.mobileVerified ? `verified ${u.mobileVerifiedAt ? formatDate(u.mobileVerifiedAt) : ''}` : 'mobile not verified'}
+                {u.email ? ` · ${u.email}` : ''} · joined {formatDate(u.createdAt)}
               </>
             }
             actions={<AccountChip status={u.accountStatus} />}

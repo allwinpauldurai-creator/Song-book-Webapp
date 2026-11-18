@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { a11yViolations, loginViaUi, openBook, settled, trackCspViolations } from './helpers';
 
 // Signed-in flows as the dev admin (FR-15/16/17/18, admin pages). One login for the whole file:
-// the backend rate-limits logins per email, and the access token lives only in page memory.
+// the backend rate-limits logins per mobile number, and the access token lives only in page memory.
 test.describe.configure({ mode: 'serial' });
 
 let page: Page;
@@ -106,7 +106,8 @@ test('download returns the PDF with a clean file name', async () => {
 test('profile and requests pages work', async () => {
   await go('/me/profile');
   await expect(page.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
-  await expect(page.getByLabel('Email')).not.toBeEditable();
+  await expect(page.getByRole('heading', { name: 'Mobile number', level: 2 })).toBeVisible();
+  await expect(page.getByText('+91 99999 99999')).toBeVisible();
   expect.soft(await a11yViolations(page)).toEqual([]);
 
   await go('/me/requests');

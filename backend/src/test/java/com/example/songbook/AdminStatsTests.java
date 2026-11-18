@@ -26,7 +26,7 @@ class AdminStatsTests extends IntegrationTest {
         JsonNode before = stats(admin);
 
         Member member = newMember("stats"); // verified -> default ACTIVE membership
-        register(uniqueEmail("stats-unverified"), PASSWORD);
+        register(uniqueMobile(), PASSWORD);
         UUID category = createCategory(admin, "Stats " + UUID.randomUUID());
         UUID book = createPublishedBook(admin, "Stats book", category);
         mvc.perform(bearer(post("/api/v1/modification-requests"), member.token())

@@ -1,6 +1,7 @@
 package com.example.songbook.support;
 
-import com.example.songbook.email.EmailSender;
+import com.example.songbook.auth.entity.OtpPurpose;
+import com.example.songbook.sms.SmsSender;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -10,11 +11,9 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Real PostgreSQL 16 (embedded binaries, no Docker needed) and an in-memory email outbox.
+ * Real PostgreSQL 16 (embedded binaries, no Docker needed) and an in-memory SMS outbox.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestInfrastructure {
@@ -47,38 +46,34 @@ public class TestInfrastructure {
 
     @Bean
     @Primary
-    public CapturingEmailSender capturingEmailSender() {
-        return new CapturingEmailSender();
+    public CapturingSmsSender capturingSmsSender() {
+        return new CapturingSmsSender();
     }
 
-    public static class CapturingEmailSender implements EmailSender {
-        private static final Pattern TOKEN = Pattern.compile("token=([A-Za-z0-9_%-]+)");
-        private final List<Message> messages = new CopyOnWriteArrayList<>();
+    public static class CapturingSmsSender implements SmsSender {
+        private final List<Sms> messages = new CopyOnWriteArrayList<>();
 
         @Override
-        public void send(String to, String subject, String textBody) {
-            messages.add(new Message(to, subject, textBody));
+        public void sendOtp(String mobile, OtpPurpose purpose, String code) {
+            messages.add(new Sms(mobile, purpose, code));
         }
 
-        /** Token from the most recent email to {@code to} whose subject contains {@code subjectPart}. */
-        public String lastToken(String to, String subjectPart) {
+        /** Code from the most recent SMS of {@code purpose} to {@code mobile} (E.164). */
+        public String lastCode(String mobile, OtpPurpose purpose) {
             for (int i = messages.size() - 1; i >= 0; i--) {
-                Message m = messages.get(i);
-                if (m.to().equals(to) && m.subject().contains(subjectPart)) {
-                    Matcher matcher = TOKEN.matcher(m.body());
-                    if (matcher.find()) {
-                        return java.net.URLDecoder.decode(matcher.group(1), java.nio.charset.StandardCharsets.UTF_8);
-                    }
+                Sms m = messages.get(i);
+                if (m.mobile().equals(mobile) && m.purpose() == purpose) {
+                    return m.code();
                 }
             }
-            throw new AssertionError("No '" + subjectPart + "' email for " + to);
+            throw new AssertionError("No " + purpose + " SMS for " + mobile);
         }
 
-        public long count(String to) {
-            return messages.stream().filter(m -> m.to().equals(to)).count();
+        public long count(String mobile) {
+            return messages.stream().filter(m -> m.mobile().equals(mobile)).count();
         }
 
-        public record Message(String to, String subject, String body) {
+        public record Sms(String mobile, OtpPurpose purpose, String code) {
         }
     }
 }

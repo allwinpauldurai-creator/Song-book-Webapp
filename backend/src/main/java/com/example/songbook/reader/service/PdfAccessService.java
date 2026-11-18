@@ -26,7 +26,7 @@ import java.util.UUID;
 
 /**
  * The single place where PDF eligibility is decided (requirements 5.2 / 7):
- * active account, verified email, valid membership (admins may bypass, decision D3), and an available book.
+ * active account, verified mobile number, valid membership (admins may bypass, decision D3), and an available book.
  */
 @Service
 public class PdfAccessService {
@@ -90,8 +90,8 @@ public class PdfAccessService {
         if (!user.canAuthenticate(now)) {
             throw ApiException.forbidden("ACCOUNT_INACTIVE", "Your account is not active");
         }
-        if (!user.isEmailVerified()) {
-            throw ApiException.forbidden("EMAIL_NOT_VERIFIED", "Please verify your email address");
+        if (!user.isMobileVerified()) {
+            throw ApiException.forbidden("MOBILE_NOT_VERIFIED", "Please verify your mobile number");
         }
         boolean bypass = adminsBypassMembership && user.hasRole(RoleName.ADMIN);
         if (!bypass && !memberships.hasValidMembership(userId)) {

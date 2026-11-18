@@ -7,6 +7,7 @@ import com.example.songbook.auth.service.RefreshTokenService;
 import com.example.songbook.common.exception.ApiException;
 import com.example.songbook.common.response.PageResponse;
 import com.example.songbook.common.util.PageableUtils;
+import com.example.songbook.common.util.PhoneNumbers;
 import com.example.songbook.membership.service.MembershipService;
 import com.example.songbook.role.Role;
 import com.example.songbook.role.RoleName;
@@ -38,7 +39,7 @@ import java.util.stream.Collectors;
 public class AdminUserService {
 
     private static final Map<String, String> SORTS = Map.of(
-            "fullName", "fullName", "email", "email", "createdAt", "createdAt", "accountStatus", "accountStatus");
+            "fullName", "fullName", "mobile", "mobile", "email", "email", "createdAt", "createdAt", "accountStatus", "accountStatus");
 
     private final UserRepository users;
     private final RoleRepository roles;
@@ -75,24 +76,24 @@ public class AdminUserService {
 
     @Transactional
     public AdminUserDetail create(AdminCreateUserRequest req, UUID actorId) {
+        String mobile = PhoneNumbers.normalize(req.mobile());
         String email = User.normalizeEmail(req.email());
-        if (users.existsByEmail(email)) {
-            throw ApiException.conflict("EMAIL_IN_USE", "A user with this email already exists");
-        }
-        PasswordPolicy.check(req.password(), email);
-        User user = new User(req.fullName(), email, passwordEncoder.encode(req.password()));
+        checkMobileFree(mobile, null);
+        checkEmailFree(email, null);
+        PasswordPolicy.check(req.password(), mobile);
+        User user = new User(req.fullName(), mobile, email, passwordEncoder.encode(req.password()));
         user.getRoles().addAll(resolveRoles(req.roles()));
-        if (req.emailVerified()) {
-            user.markEmailVerified(Instant.now(clock));
+        if (req.mobileVerified()) {
+            user.markMobileVerified(Instant.now(clock));
         }
         users.save(user);
         audit.record(actorId, AuditActions.USER_CREATED, "USER", user.getId(),
-                Map.of("roles", sorted(req.roles()), "emailVerified", req.emailVerified()));
+                Map.of("roles", sorted(req.roles()), "mobileVerified", req.mobileVerified()));
         return AdminUserDetail.from(user, memberships.historyFor(user.getId()));
     }
 
     /**
-     * Updates name, status and roles. Refuses any change that would leave no active administrator.
+     * Updates name, contact details, status and roles. Refuses any change that would leave no active administrator.
      * The ADMIN role row is locked so two concurrent demotions cannot both pass the check.
      */
     @Transactional
@@ -111,7 +112,14 @@ public class AdminUserService {
 
         Set<RoleName> before = user.roleNames();
         AccountStatus statusBefore = user.getAccountStatus();
+        String mobile = PhoneNumbers.normalize(req.mobile());
+        String email = User.normalizeEmail(req.email());
+        checkMobileFree(mobile, user.getId());
+        checkEmailFree(email, user.getId());
+        boolean mobileChanged = !mobile.equals(user.getMobile());
         user.setFullName(req.fullName());
+        user.setMobile(mobile, req.mobileVerified(), Instant.now(clock));
+        user.setEmail(email);
         user.setAccountStatus(req.accountStatus());
         user.getRoles().clear();
         user.getRoles().addAll(resolveRoles(req.roles()));
@@ -124,8 +132,24 @@ public class AdminUserService {
         users.flush();
         audit.record(actorId, AuditActions.USER_UPDATED, "USER", user.getId(), Map.of(
                 "rolesBefore", sorted(before), "rolesAfter", sorted(req.roles()),
-                "statusBefore", statusBefore, "statusAfter", req.accountStatus()));
+                "statusBefore", statusBefore, "statusAfter", req.accountStatus(),
+                "mobileChanged", mobileChanged, "mobileVerified", req.mobileVerified()));
         return AdminUserDetail.from(user, memberships.historyFor(user.getId()));
+    }
+
+    private void checkMobileFree(String mobile, UUID self) {
+        users.findByMobile(mobile).filter(u -> !u.getId().equals(self)).ifPresent(u -> {
+            throw ApiException.conflict("MOBILE_IN_USE", "Another account already uses this mobile number");
+        });
+    }
+
+    private void checkEmailFree(String email, UUID self) {
+        if (email == null) {
+            return;
+        }
+        users.findByEmail(email).filter(u -> !u.getId().equals(self)).ifPresent(u -> {
+            throw ApiException.conflict("EMAIL_IN_USE", "Another account already uses this email address");
+        });
     }
 
     private Set<Role> resolveRoles(Set<RoleName> names) {

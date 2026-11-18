@@ -1,13 +1,13 @@
 package com.example.songbook.auth.controller;
 
 import com.example.songbook.auth.dto.AuthDtos.AccessTokenResponse;
-import com.example.songbook.auth.dto.AuthDtos.EmailRequest;
 import com.example.songbook.auth.dto.AuthDtos.LoginRequest;
 import com.example.songbook.auth.dto.AuthDtos.LoginResponse;
 import com.example.songbook.auth.dto.AuthDtos.MessageResponse;
+import com.example.songbook.auth.dto.AuthDtos.MobileRequest;
 import com.example.songbook.auth.dto.AuthDtos.RegisterRequest;
 import com.example.songbook.auth.dto.AuthDtos.ResetPasswordRequest;
-import com.example.songbook.auth.dto.AuthDtos.TokenRequest;
+import com.example.songbook.auth.dto.AuthDtos.VerifyMobileRequest;
 import com.example.songbook.auth.service.AuthService;
 import com.example.songbook.auth.service.RefreshTokenService;
 import com.example.songbook.common.exception.ApiException;
@@ -39,8 +39,8 @@ public class AuthController {
 
     public static final String REFRESH_COOKIE = "sb_refresh";
     private static final String COOKIE_PATH = "/api/v1/auth";
-    private static final MessageResponse GENERIC_EMAIL_MESSAGE =
-            new MessageResponse("If the address can receive email, a message has been sent.");
+    private static final MessageResponse GENERIC_SMS_MESSAGE =
+            new MessageResponse("If the number is registered, a code has been sent by SMS.");
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokens;
@@ -58,23 +58,24 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Self-register a member account (response does not reveal whether the email exists)")
+    @Operation(summary = "Self-register a member account (response does not reveal whether the number exists)")
     public ResponseEntity<MessageResponse> register(@Valid @RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.accepted().body(new MessageResponse(
-                "Registration received. Check your email to verify your address."));
+                "Registration received. Enter the code sent to your mobile number by SMS."));
     }
 
-    @PostMapping("/verify-email")
-    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody TokenRequest request) {
-        authService.verifyEmail(request.token());
+    @PostMapping("/verify-mobile")
+    @Operation(summary = "Confirm the mobile number with the SMS code; creates the default membership")
+    public ResponseEntity<Void> verifyMobile(@Valid @RequestBody VerifyMobileRequest request) {
+        authService.verifyMobile(request.mobile(), request.code());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<MessageResponse> resendVerification(@Valid @RequestBody EmailRequest request) {
-        authService.resendVerification(request.email());
-        return ResponseEntity.accepted().body(GENERIC_EMAIL_MESSAGE);
+    public ResponseEntity<MessageResponse> resendVerification(@Valid @RequestBody MobileRequest request) {
+        authService.resendVerification(request.mobile());
+        return ResponseEntity.accepted().body(GENERIC_SMS_MESSAGE);
     }
 
     @PostMapping("/login")
@@ -125,9 +126,9 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody EmailRequest request) {
-        authService.forgotPassword(request.email());
-        return ResponseEntity.accepted().body(GENERIC_EMAIL_MESSAGE);
+    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody MobileRequest request) {
+        authService.forgotPassword(request.mobile());
+        return ResponseEntity.accepted().body(GENERIC_SMS_MESSAGE);
     }
 
     @PostMapping("/reset-password")

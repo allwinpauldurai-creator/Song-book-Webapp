@@ -1,11 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page } from '@playwright/test';
 
-export const ADMIN = { email: 'admin@songbook.local', password: 'ChangeMe-Admin-123' };
+// Dev admin from LocalDevApplication (bootstrap mobile +919999999999).
+export const ADMIN = { mobile: '99999 99999', password: 'ChangeMe-Admin-123' };
 
 export async function loginViaUi(page: Page, user = ADMIN) {
   await page.goto('/login');
-  await page.getByLabel('Email').fill(user.email);
+  await page.getByLabel('Mobile number').fill(user.mobile);
   await page.locator('input[autocomplete="current-password"]').fill(user.password);
   await page.getByRole('button', { name: 'Log in' }).click();
   await expect(page).toHaveURL(/\/me$/);

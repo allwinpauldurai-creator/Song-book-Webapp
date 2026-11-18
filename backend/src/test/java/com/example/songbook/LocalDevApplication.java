@@ -1,9 +1,6 @@
 package com.example.songbook;
 
-import com.example.songbook.email.EmailSender;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +15,9 @@ import java.nio.file.Path;
  * LOCAL DEVELOPMENT ONLY - runs the API without Docker or an installed PostgreSQL.
  * <p>
  * Starts an embedded PostgreSQL 16 whose data persists in {@code backend/data/postgres}, prints
- * verification/reset emails to the console instead of sending them, and creates a dev admin account.
+ * SMS one-time codes to the console (logger DEV-SMS, from the {@code local} profile) instead of sending them,
+ * and creates a dev admin account that signs in with mobile 9999999999 (an existing dev admin without a mobile
+ * gets it attached on startup).
  * <pre>
  *   mvnw.cmd spring-boot:test-run
  * </pre>
@@ -29,6 +28,7 @@ public class LocalDevApplication {
     public static void main(String[] args) {
         defaultProperty("spring.profiles.active", "local");
         defaultProperty("songbook.bootstrap.admin-email", "admin@songbook.local");
+        defaultProperty("songbook.bootstrap.admin-mobile", "+919999999999");
         defaultProperty("songbook.bootstrap.admin-password", "ChangeMe-Admin-123");
         SpringApplication.from(SongBookApplication::main).with(DevInfrastructure.class).run(args);
     }
@@ -41,8 +41,6 @@ public class LocalDevApplication {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class DevInfrastructure {
-
-        private static final Logger log = LoggerFactory.getLogger("DEV-EMAIL");
 
         @Bean(destroyMethod = "close")
         EmbeddedPostgres embeddedPostgres() throws IOException {
@@ -68,20 +66,6 @@ public class LocalDevApplication {
             pool.setPoolName("dev-embedded-postgres");
             pool.setMaximumPoolSize(10);
             return pool;
-        }
-
-        /** Prints emails (including their one-time links) to the console. Never use outside local dev. */
-        @Bean
-        @Primary
-        EmailSender consoleEmailSender() {
-            return (to, subject, body) -> log.info("""
-
-                    ===================== DEV EMAIL (not sent) =====================
-                    To: {}
-                    Subject: {}
-
-                    {}
-                    ================================================================""", to, subject, body);
         }
     }
 }

@@ -16,6 +16,10 @@ songbook:
     allow-generated-secrets: true
     # Local runs over plain http; production always uses Secure cookies.
     refresh-cookie-secure: false
+  sms:
+    # One-time codes are printed to the console (logger DEV-SMS) instead of being sent.
+    provider: log
+    allow-log-provider: true
 
 logging:
   level:

@@ -10,7 +10,7 @@ interface AuthState {
   status: Status;
   user: Me | null;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<Me>;
+  login: (mobile: string, password: string) => Promise<Me>;
   logout: () => Promise<void>;
   /** Re-reads /users/me, e.g. after the profile or membership changed. */
   reloadUser: () => Promise<void>;
@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await authApi.login(email, password);
+    async (mobile: string, password: string) => {
+      const res = await authApi.login(mobile, password);
       setAccessToken(res.accessToken);
       applyUser(res.user);
       return res.user;

@@ -23,6 +23,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * An account. The mobile number (E.164) is the sign-in identity and is verified by SMS code.
+ * Email is an optional, unverified contact field.
+ */
 @Entity
 @Table(name = "users")
 public class User {
@@ -33,7 +37,16 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
-    @Column(nullable = false, unique = true, length = 254)
+    @Column(unique = true, length = 16)
+    private String mobile;
+
+    @Column(name = "mobile_verified", nullable = false)
+    private boolean mobileVerified;
+
+    @Column(name = "mobile_verified_at")
+    private Instant mobileVerifiedAt;
+
+    @Column(unique = true, length = 254)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -42,12 +55,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false, length = 20)
     private AccountStatus accountStatus = AccountStatus.ACTIVE;
-
-    @Column(name = "email_verified", nullable = false)
-    private boolean emailVerified;
-
-    @Column(name = "email_verified_at")
-    private Instant emailVerifiedAt;
 
     @Column(name = "failed_login_count", nullable = false)
     private int failedLoginCount;
@@ -75,15 +82,24 @@ public class User {
     protected User() {
     }
 
-    public User(String fullName, String email, String passwordHash) {
+    /**
+     * @param mobile already normalised (see {@code PhoneNumbers.normalize}); may be null only for legacy accounts
+     * @param email  optional contact address
+     */
+    public User(String fullName, String mobile, String email, String passwordHash) {
         this.id = UUID.randomUUID();
         this.fullName = fullName.trim();
+        this.mobile = mobile;
         this.email = normalizeEmail(email);
         this.passwordHash = passwordHash;
     }
 
+    /** Lower-cased and trimmed; blank becomes {@code null} (email is optional). */
     public static String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        if (email == null || email.isBlank()) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     public boolean hasRole(RoleName name) {
@@ -103,9 +119,27 @@ public class User {
         return accountStatus == AccountStatus.ACTIVE && !isLocked(now);
     }
 
-    public void markEmailVerified(Instant now) {
-        this.emailVerified = true;
-        this.emailVerifiedAt = now;
+    public void markMobileVerified(Instant now) {
+        this.mobileVerified = true;
+        this.mobileVerifiedAt = now;
+    }
+
+    /** Replaces the mobile number with one that has just been confirmed by SMS code (or vouched for by an admin). */
+    public void changeMobile(String newMobile, Instant now) {
+        this.mobile = newMobile;
+        markMobileVerified(now);
+    }
+
+    /** Admin edit: sets the number and whether it counts as verified. */
+    public void setMobile(String mobile, boolean verified, Instant now) {
+        boolean changed = this.mobile == null || !this.mobile.equals(mobile);
+        this.mobile = mobile;
+        if (verified && (changed || !mobileVerified)) {
+            markMobileVerified(now);
+        } else if (!verified) {
+            this.mobileVerified = false;
+            this.mobileVerifiedAt = null;
+        }
     }
 
     public void recordFailedLogin(int maxFailures, Instant lockUntil) {
@@ -133,8 +167,24 @@ public class User {
         this.fullName = fullName.trim();
     }
 
+    public String getMobile() {
+        return mobile;
+    }
+
+    public boolean isMobileVerified() {
+        return mobileVerified;
+    }
+
+    public Instant getMobileVerifiedAt() {
+        return mobileVerifiedAt;
+    }
+
     public String getEmail() {
         return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = normalizeEmail(email);
     }
 
     public String getPasswordHash() {
@@ -151,14 +201,6 @@ public class User {
 
     public void setAccountStatus(AccountStatus accountStatus) {
         this.accountStatus = accountStatus;
-    }
-
-    public boolean isEmailVerified() {
-        return emailVerified;
-    }
-
-    public Instant getEmailVerifiedAt() {
-        return emailVerifiedAt;
     }
 
     public int getFailedLoginCount() {

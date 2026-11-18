@@ -11,7 +11,7 @@ cd backend
 Integration tests start the **full application against a real PostgreSQL 16** using embedded
 binaries (`io.zonky.test:embedded-postgres`) — **no Docker required**, works on Windows, macOS and
 Linux CI. Flyway runs the real migrations and Hibernate validates the schema, so mapping errors fail
-the build. Emails are captured in memory (`TestInfrastructure.CapturingEmailSender`); files go to
+the build. SMS codes are captured in memory (`TestInfrastructure.CapturingSmsSender`); files go to
 `backend/target/test-storage`.
 
 ## Test layers
@@ -32,8 +32,9 @@ the build. Emails are captured in memory (`TestInfrastructure.CapturingEmailSend
 
 | Requirement | Covered by |
 |---|---|
-| 14.1 registration success, duplicate email, invalid input, hash-only password, MEMBER-only role | `AuthFlowTests` |
-| 14.1 unverified user blocked; verification/reset tokens expire and are single-use; lockout | `AuthFlowTests` |
+| 14.1 registration success, duplicate mobile, mobile normalisation, invalid input, hash-only password and code, MEMBER-only role | `AuthFlowTests`, `PhoneNumbersTest` |
+| 14.1 unverified user blocked; SMS codes expire, are single-use, purpose-bound and burn after 5 wrong guesses; lockout | `AuthFlowTests` |
+| SMS resend cooldown and daily limit; mobile change; MSG91 request format; `log` provider refused unless allowed | `OtpServiceTest`, `AuthFlowTests`, `SmsProviderTest` |
 | 14.1 rate limiting | `RateLimiterTest` (disabled in integration tests to keep them independent) |
 | 14.2 guest browse / no PDF; member 403 on admin APIs; admin operations; disabled user 401; IDOR | `AuthFlowTests`, `LibraryFlowTests` |
 | 14.3 active / suspended / expired / future-start membership, null end date | `MembershipValidityTest`, `LibraryFlowTests.suspendedOrExpiredMembershipDeniesAccess` |

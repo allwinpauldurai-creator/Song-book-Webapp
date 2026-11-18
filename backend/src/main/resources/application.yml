@@ -34,11 +34,6 @@ spring:
       pageable:
         max-page-size: 100
         default-page-size: 20
-  mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
 
 server:
   error:
@@ -56,9 +51,6 @@ management:
       show-details: never
       probes:
         enabled: true
-  health:
-    mail:
-      enabled: false
 
 springdoc:
   api-docs:
@@ -77,7 +69,7 @@ songbook:
     # PENDING BUSINESS DECISION D1: default length of an automatically created membership.
     # 0 = no end date. Current default (365) is a placeholder until confirmed.
     default-duration-days: ${SONGBOOK_MEMBERSHIP_DAYS:365}
-    auto-create-on-email-verification: ${SONGBOOK_MEMBERSHIP_AUTO:true}   # decision D2
+    auto-create-on-mobile-verification: ${SONGBOOK_MEMBERSHIP_AUTO:true}  # decision D2
     admins-bypass-membership: true                                         # decision D3
   storage:
     provider: ${SONGBOOK_STORAGE_PROVIDER:local}
@@ -92,9 +84,21 @@ songbook:
     ticket-secret: ${SONGBOOK_TICKET_SECRET:}
     allow-generated-secrets: false
     refresh-cookie-secure: true
-  mail:
-    from: ${SONGBOOK_MAIL_FROM:no-reply@songbook.local}
+  sms:
+    # msg91 = real SMS (needs MSG91 account + DLT templates); log = codes written to the log (local/dev only).
+    provider: ${SONGBOOK_SMS_PROVIDER:log}
+    allow-log-provider: ${SONGBOOK_SMS_ALLOW_LOG:false}
+    otp-ttl: 10m
+    otp-max-attempts: 5
+    resend-cooldown: 60s
+    daily-limit: ${SONGBOOK_SMS_DAILY_LIMIT:500}
+    msg91:
+      auth-key: ${MSG91_AUTH_KEY:}
+      template-verify: ${MSG91_TEMPLATE_VERIFY:}
+      template-reset: ${MSG91_TEMPLATE_RESET:}
+      template-change: ${MSG91_TEMPLATE_CHANGE:}
   bootstrap:
     admin-email: ${SONGBOOK_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-mobile: ${SONGBOOK_BOOTSTRAP_ADMIN_MOBILE:}
     admin-password: ${SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD:}
     admin-full-name: ${SONGBOOK_BOOTSTRAP_ADMIN_NAME:Administrator}

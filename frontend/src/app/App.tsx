@@ -7,9 +7,8 @@ import CataloguePage from '../features/catalogue/CataloguePage';
 import BookDetailPage from '../features/catalogue/BookDetailPage';
 import LoginPage from '../features/auth/LoginPage';
 import RegisterPage from '../features/auth/RegisterPage';
-import VerifyEmailPage from '../features/auth/VerifyEmailPage';
+import VerifyMobilePage from '../features/auth/VerifyMobilePage';
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage';
-import ResetPasswordPage from '../features/auth/ResetPasswordPage';
 import { NotFoundPage } from '../components/StatusPages';
 
 // Code-split: guests only download the public pages. Member pages (and PDF.js for the reader)
@@ -41,9 +40,8 @@ export default function App() {
 
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
-          <Route path="verify-email" element={<VerifyEmailPage />} />
+          <Route path="verify-mobile" element={<VerifyMobilePage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="reset-password" element={<ResetPasswordPage />} />
 
           <Route path="me" element={<Member><MePage /></Member>} />
           <Route path="me/profile" element={<Member><ProfilePage /></Member>} />

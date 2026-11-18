@@ -1,54 +1,42 @@
 import { useState, type FormEvent } from 'react';
-import { Link as RouterLink } from 'react-router';
+import { Link as RouterLink, useNavigate } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
-import MarkEmailReadOutlinedIcon from '@mui/icons-material/MarkEmailReadOutlined';
 import { ApiError, errorMessage } from '../../services/api/client';
 import { authApi } from '../../services/api/endpoints';
 import { RedirectIfAuthenticated } from '../../routes/guards';
 import { AuthCard } from '../../components/common';
+import { normalizeMobile } from '../../utils/mobile';
 import PasswordField, { passwordProblem } from './PasswordField';
+import MobileField from './MobileField';
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
+  const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [touched, setTouched] = useState(false);
 
-  const register = useMutation({ mutationFn: () => authApi.register(fullName.trim(), email.trim(), password) });
+  const e164 = normalizeMobile(mobile);
+  const register = useMutation({
+    mutationFn: () =>
+      authApi.register({ fullName: fullName.trim(), mobile: e164!, email: email.trim() || null, password }),
+    // The code screen needs the number; it travels in navigation state, not in the URL.
+    onSuccess: () => navigate('/verify-mobile', { state: { mobile: e164, sent: true } }),
+  });
 
-  const pwProblem = passwordProblem(password, email);
+  const pwProblem = passwordProblem(password, e164);
   const mismatch = confirm.length > 0 && confirm !== password;
   const serverFields = register.error instanceof ApiError ? register.error.fieldMap() : {};
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!fullName.trim() || !email.trim() || pwProblem || confirm !== password) return;
+    if (!fullName.trim() || !e164 || pwProblem || confirm !== password) return;
     register.mutate();
   };
-
-  if (register.isSuccess) {
-    return (
-      <AuthCard title="Check your email">
-        <Stack sx={{ alignItems: 'flex-start' }} spacing={2}>
-          <MarkEmailReadOutlinedIcon color="primary" sx={{ fontSize: 48 }} />
-          <Typography>
-            If <strong>{email.trim()}</strong> can be registered, we have sent it a verification link. Open the link to
-            activate your account. It is valid for 24 hours.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            No email? Check your spam folder, or{' '}
-            <Link component={RouterLink} to="/login">
-              log in
-            </Link>{' '}
-            to request a new link.
-          </Typography>
-        </Stack>
-      </AuthCard>
-    );
-  }
 
   return (
     <RedirectIfAuthenticated to="/me">
@@ -67,15 +55,15 @@ export default function RegisterPage() {
               helperText={serverFields.fullName ?? (touched && !fullName.trim() ? 'Enter your name.' : ' ')}
               slotProps={{ htmlInput: { maxLength: 150 } }}
             />
+            <MobileField value={mobile} onChange={setMobile} required showError={touched} serverError={serverFields.mobile} />
             <TextField
-              label="Email"
+              label="Email (optional)"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              error={(touched && !email.trim()) || !!serverFields.email}
-              helperText={serverFields.email ?? (touched && !email.trim() ? 'Enter your email.' : ' ')}
+              error={!!serverFields.email}
+              helperText={serverFields.email ?? 'Only used to contact you. You sign in with your mobile number.'}
               slotProps={{ htmlInput: { maxLength: 254 } }}
             />
             <PasswordField
@@ -84,7 +72,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              error={(touched || password.length > 0) && !!pwProblem || !!serverFields.password}
+              error={((touched || password.length > 0) && !!pwProblem) || !!serverFields.password}
               helperText={serverFields.password ?? ((touched || password.length > 0) && pwProblem ? pwProblem : 'At least 10 characters.')}
             />
             <PasswordField
@@ -99,6 +87,9 @@ export default function RegisterPage() {
             <Button type="submit" variant="contained" size="large" disabled={register.isPending}>
               {register.isPending ? 'Creating account…' : 'Create account'}
             </Button>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              We will send a 6-digit code to your mobile by SMS to confirm the number.
+            </Typography>
             <Typography sx={{ textAlign: 'center' }} variant="body2">
               Already a member?{' '}
               <Link component={RouterLink} to="/login">

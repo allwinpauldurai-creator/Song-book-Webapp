@@ -15,10 +15,13 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Single-use email verification / password reset token. Only the SHA-256 hash is stored. */
+/**
+ * Single-use SMS code. Only a SHA-256 hash bound to the user and purpose is stored.
+ * {@link #mobile} is the number the code was sent to (the new number for {@link OtpPurpose#MOBILE_CHANGE}).
+ */
 @Entity
-@Table(name = "user_tokens")
-public class UserToken extends AssignedIdEntity {
+@Table(name = "otp_codes")
+public class OtpCode extends AssignedIdEntity {
 
     @Id
     private UUID id;
@@ -29,10 +32,16 @@ public class UserToken extends AssignedIdEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    private TokenPurpose purpose;
+    private OtpPurpose purpose;
 
-    @Column(name = "token_hash", nullable = false, length = 64)
-    private String tokenHash;
+    @Column(nullable = false, length = 16)
+    private String mobile;
+
+    @Column(name = "code_hash", nullable = false, length = 64)
+    private String codeHash;
+
+    @Column(nullable = false)
+    private int attempts;
 
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
@@ -43,20 +52,29 @@ public class UserToken extends AssignedIdEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected UserToken() {
+    protected OtpCode() {
     }
 
-    public UserToken(User user, TokenPurpose purpose, String tokenHash, Instant now, Instant expiresAt) {
+    public OtpCode(User user, OtpPurpose purpose, String mobile, String codeHash, Instant now, Instant expiresAt) {
         this.id = UUID.randomUUID();
         this.user = user;
         this.purpose = purpose;
-        this.tokenHash = tokenHash;
+        this.mobile = mobile;
+        this.codeHash = codeHash;
         this.createdAt = now;
         this.expiresAt = expiresAt;
     }
 
     public boolean isUsable(Instant now) {
         return usedAt == null && expiresAt.isAfter(now);
+    }
+
+    /** Counts a wrong guess; the code is burned once {@code maxAttempts} is reached. */
+    public void recordFailedAttempt(int maxAttempts, Instant now) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+            usedAt = now;
+        }
     }
 
     public void markUsed(Instant now) {
@@ -72,15 +90,27 @@ public class UserToken extends AssignedIdEntity {
         return user;
     }
 
-    public TokenPurpose getPurpose() {
+    public OtpPurpose getPurpose() {
         return purpose;
+    }
+
+    public String getMobile() {
+        return mobile;
+    }
+
+    public String getCodeHash() {
+        return codeHash;
+    }
+
+    public int getAttempts() {
+        return attempts;
     }
 
     public Instant getExpiresAt() {
         return expiresAt;
     }
 
-    public Instant getUsedAt() {
-        return usedAt;
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

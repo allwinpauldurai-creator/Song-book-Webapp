@@ -7,7 +7,7 @@ const CONCURRENCY = Number(process.argv[3] ?? 20);
 
 const token = (await (await fetch(`${API}/auth/login`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'admin@songbook.local', password: 'ChangeMe-Admin-123' }),
+  body: JSON.stringify({ mobile: '+919999999999', password: 'ChangeMe-Admin-123' }),
 })).json()).accessToken;
 const auth = { Authorization: `Bearer ${token}` };
 const books = (await (await fetch(`${API}/books?size=20&sort=title,asc`)).json()).content;

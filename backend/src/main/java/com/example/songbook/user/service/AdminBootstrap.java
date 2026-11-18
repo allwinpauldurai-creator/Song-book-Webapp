@@ -3,6 +3,7 @@ package com.example.songbook.user.service;
 import com.example.songbook.audit.AuditActions;
 import com.example.songbook.audit.AuditService;
 import com.example.songbook.auth.service.PasswordPolicy;
+import com.example.songbook.common.util.PhoneNumbers;
 import com.example.songbook.config.AppProperties;
 import com.example.songbook.role.RoleName;
 import com.example.songbook.role.RoleRepository;
@@ -18,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Creates the first administrator from {@code songbook.bootstrap.*} when no admin exists yet.
@@ -48,25 +51,67 @@ public class AdminBootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (isBlank(config.adminEmail()) || isBlank(config.adminPassword())) {
+        String email = User.normalizeEmail(config.adminEmail());
+        String mobile = null;
+        if (!isBlank(config.adminMobile())) {
+            mobile = PhoneNumbers.tryNormalize(config.adminMobile());
+            if (mobile == null) {
+                throw new IllegalStateException("songbook.bootstrap.admin-mobile is not a valid mobile number");
+            }
+        }
+        if (mobile == null && email == null) {
             return;
         }
         if (users.countWithRole(RoleName.ADMIN) > 0) {
-            log.info("Admin bootstrap skipped: an administrator already exists");
+            attachMobileToExistingAdmin(email, mobile);
             return;
         }
-        String email = User.normalizeEmail(config.adminEmail());
-        PasswordPolicy.check(config.adminPassword(), email);
-        User admin = users.findByEmail(email).orElseGet(() -> users.save(new User(
-                isBlank(config.adminFullName()) ? "Administrator" : config.adminFullName(),
-                email, passwordEncoder.encode(config.adminPassword()))));
+        if (isBlank(config.adminPassword())) {
+            return;
+        }
+        if (mobile == null) {
+            log.warn("Admin bootstrap skipped: songbook.bootstrap.admin-mobile is required to create an admin");
+            return;
+        }
+        String adminMobile = mobile;
+        PasswordPolicy.check(config.adminPassword(), adminMobile);
+        User admin = users.findByMobile(adminMobile)
+                .or(() -> email == null ? Optional.empty() : users.findByEmail(email))
+                .orElseGet(() -> users.save(new User(
+                        isBlank(config.adminFullName()) ? "Administrator" : config.adminFullName(),
+                        adminMobile, email, passwordEncoder.encode(config.adminPassword()))));
         admin.getRoles().add(roles.require(RoleName.ADMIN));
         admin.getRoles().add(roles.require(RoleName.MEMBER));
-        if (!admin.isEmailVerified()) {
-            admin.markEmailVerified(Instant.now(clock));
+        if (admin.getMobile() == null) {
+            admin.changeMobile(adminMobile, Instant.now(clock));
+        } else if (!admin.isMobileVerified()) {
+            admin.markMobileVerified(Instant.now(clock));
         }
         audit.record(null, AuditActions.ADMIN_BOOTSTRAPPED, "USER", admin.getId(), null);
         log.info("Bootstrap administrator created/promoted (user id {})", admin.getId());
+    }
+
+    /**
+     * Accounts created before sign-in moved to mobile numbers have no mobile and could no longer sign in.
+     * Attaches the configured (pre-verified) number to the admin with the configured email, once.
+     */
+    private void attachMobileToExistingAdmin(String email, String mobile) {
+        if (email == null || mobile == null) {
+            log.info("Admin bootstrap skipped: an administrator already exists");
+            return;
+        }
+        users.findByEmail(email)
+                .filter(u -> u.hasRole(RoleName.ADMIN) && u.getMobile() == null)
+                .ifPresentOrElse(admin -> {
+                    if (users.existsByMobile(mobile)) {
+                        log.warn("Admin bootstrap: the configured admin mobile is already used by another account");
+                        return;
+                    }
+                    admin.changeMobile(mobile, Instant.now(clock));
+                    audit.record(null, AuditActions.MOBILE_CHANGED, "USER", admin.getId(),
+                            Map.of("from", "none", "to", PhoneNumbers.mask(mobile), "bootstrap", true));
+                    log.info("Bootstrap mobile attached to existing administrator (user id {})", admin.getId());
+                }, () -> log.info("Admin bootstrap skipped: an administrator already exists"));
     }
 
     private static boolean isBlank(String s) {

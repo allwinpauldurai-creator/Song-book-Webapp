@@ -30,7 +30,7 @@ log the user out. Custom domains are therefore required for real use.
 | Static Web Apps | Standard | Standard | Custom domain, headers from `scripts/write-swa-config.mjs` |
 | PostgreSQL Flexible Server 16 | B1ms, 7-day backups | D2ds_v5, 35-day geo-redundant backups | TLS required; "Allow Azure services" firewall (private access in the backlog) |
 | Storage account | LRS | ZRS | Public blob access off, shared keys off, versioning, 14-day soft delete; containers `book-covers`, `book-pdfs` |
-| Key Vault | RBAC | RBAC + purge protection | `db-password` (template); `jwt-secret`, `ticket-secret`, `mail-*` (RUNBOOK §3) |
+| Key Vault | RBAC | RBAC + purge protection | `db-password` (template); `jwt-secret`, `ticket-secret`, `msg91-auth-key` (RUNBOOK §3) |
 | Log Analytics + Application Insights | 30 days | 90 days | Agent masks `ticket=` in request URLs |
 | Action group + 5 metric alerts | | | 5xx, response time, health, DB CPU, DB storage |
 
@@ -47,7 +47,8 @@ Contributor** on the two containers only, and **Key Vault Secrets User** on the 
 | `SONGBOOK_FRONTEND_URL`, `SONGBOOK_CORS_ORIGINS` | `https://<frontend domain>` |
 | `SONGBOOK_TIMEZONE`, `SONGBOOK_MEMBERSHIP_DAYS` | parameters (D5, D1) |
 | `SONGBOOK_STORAGE_PROVIDER`, `AZURE_STORAGE_ACCOUNT_ENDPOINT` | `azure`, blob endpoint |
-| `MAIL_HOST`/`MAIL_PORT`, `MAIL_USERNAME`/`MAIL_PASSWORD`, `SONGBOOK_MAIL_FROM` | `smtp.azurecomm.net:587` (STARTTLS required by `application-prod.yml`), Key Vault refs, parameter (D4) |
+| `SONGBOOK_SMS_PROVIDER`, `SONGBOOK_SMS_ALLOW_LOG`, `SONGBOOK_SMS_DAILY_LIMIT` | `log` + `true` on dev (codes in App Insights), `msg91` + `false` on prod; parameters `smsProvider`, `smsDailyLimit` |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_VERIFY` / `_RESET` / `_CHANGE` | Key Vault ref, DLT template id parameters (only when `smsProvider = msg91`) |
 | `APPLICATIONINSIGHTS_*` | connection string, agent `~3`, URL masking config |
 
 The SPA gets its API origin at build time (`VITE_API_BASE_URL`, set by the deploy workflow).
@@ -65,5 +66,5 @@ Authentication is GitHub OIDC → Entra ID; no Azure credentials or deployment t
 
 ## 5. Open decisions affecting deployment
 
-D1 membership days, D4 email sender domain, D5 timezone, D8 domain names. All are parameters
+D1 membership days, D5 timezone, D8 domain names, and the MSG91 DLT template ids (prod). All are parameters
 (`TODO` markers in `infra/env/*.bicepparam`).

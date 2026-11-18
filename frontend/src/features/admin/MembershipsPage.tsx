@@ -27,6 +27,7 @@ import { adminApi, adminKeys } from '../../services/api/adminApi';
 import type { AdminMembership } from '../../types/admin';
 import { EmptyState } from '../../components/common';
 import { formatDate } from '../../utils/format';
+import { formatMobile } from '../../utils/mobile';
 import { AdminError, MembershipChip, MEMBERSHIP_STATUSES, PageHeader, Pager, titleCase, UserPicker, type UserOption } from './common';
 import MembershipDialog from './MembershipDialog';
 import { useUrlFilters } from './useUrlFilters';
@@ -89,7 +90,9 @@ export default function MembershipsPage() {
                       <TableRow key={m.id} hover>
                         <TableCell>
                           <Link component={RouterLink} to={`/admin/users/${m.userId}`} sx={{ fontWeight: 600 }}>{m.userFullName}</Link>
-                          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{m.userEmail}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                            {formatMobile(m.userMobile) || m.userEmail}
+                          </Typography>
                         </TableCell>
                         <TableCell><MembershipChip status={m.status} valid={m.validToday} /></TableCell>
                         <TableCell>{formatDate(m.startDate)}</TableCell>

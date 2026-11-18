@@ -21,10 +21,16 @@ Commands use the Azure CLI (`az`) and assume `RG=rg-songbook-<env>`.
    - Secret: `PG_ADMIN_PASSWORD` (generate: `openssl rand -base64 32`).
    - `prod`: add required reviewers (this is the manual approval gate for infra and deployments).
 4. **Parameters:** replace every `TODO` in `infra/env/<env>.bicepparam` (domains D8, alert email,
-   mail sender D4, timezone D5, membership days D1).
-5. **Email (decision D4):** create Azure Communication Services + an Email Communication Service with a
-   verified domain, connect them, and create SMTP credentials (Entra app with the
-   "Communication and Email Service Owner" role). The SMTP username/password go to Key Vault in §3.
+   SMS provider and MSG91 template ids, timezone D5, membership days D1).
+5. **SMS (sign-up codes, password reset, mobile change):** accounts sign in with a mobile number confirmed by a
+   6-digit SMS code.
+   - `smsProvider = 'log'` (dev default): codes are **not sent**, they are written to the app log
+     (Application Insights → Logs: `AppTraces | where Message has "DEV SMS"`). Never use it in production.
+   - `smsProvider = 'msg91'` (prod): create an MSG91 account and complete **DLT registration** (Indian telecom
+     rule: registered entity, sender ID, and approved templates). Register three OTP templates — sign-up,
+     password reset, mobile change — each containing the `##otp##` variable, and put their template ids in
+     the parameter file. The MSG91 auth key goes to Key Vault in §3. Startup fails if any of them is missing.
+   - `smsDailyLimit` caps codes per 24 h across all users (cost guard; requests beyond it get HTTP 429).
 6. Run the **Infrastructure** workflow for the environment; review the what-if output, approve, then copy
    the outputs into the GitHub environment variables.
 
@@ -52,8 +58,8 @@ The template stores only `db-password`. Set the others once (you need "Key Vault
 KV=<keyVaultName output>
 az keyvault secret set --vault-name $KV -n jwt-secret    --value "$(openssl rand -base64 48)"
 az keyvault secret set --vault-name $KV -n ticket-secret --value "$(openssl rand -base64 48)"
-az keyvault secret set --vault-name $KV -n mail-username --value '<ACS SMTP username>'
-az keyvault secret set --vault-name $KV -n mail-password --value '<ACS SMTP password>'
+# Only with smsProvider = 'msg91':
+az keyvault secret set --vault-name $KV -n msg91-auth-key --value '<MSG91 auth key>'
 az webapp restart -g $RG -n <webAppName>
 ```
 
@@ -67,7 +73,7 @@ A red reference means the app cannot start (`*_SECRET must be set`).
 | `jwt-secret` | All access tokens invalid; users silently refresh (refresh tokens are stored hashed in the DB, not signed) | Set new value, restart |
 | `ticket-secret` | Open readers renew their 60 s ticket automatically | Set new value, restart |
 | `db-password` | — | `az postgres flexible-server update -g $RG -n <server> -p '<new>'`, set the secret, restart |
-| `mail-password` | — | New SMTP credential in Entra, set the secret, restart |
+| `msg91-auth-key` | — | Create a new key in MSG91, set the secret, restart, then delete the old key in MSG91 |
 
 ## 4. First deployment and the first administrator
 
@@ -75,12 +81,19 @@ A red reference means the app cannot start (`*_SECRET must be set`).
 2. Create the first admin by setting **temporary** app settings (never stored in Key Vault or the repo):
    ```bash
    az webapp config appsettings set -g $RG -n <webAppName> --settings \
-     SONGBOOK_BOOTSTRAP_ADMIN_EMAIL=<email> SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD='<strong password>'
-   # wait for the restart, sign in once, then remove them:
-   az webapp config appsettings delete -g $RG -n <webAppName> \
-     --setting-names SONGBOOK_BOOTSTRAP_ADMIN_EMAIL SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD
+     SONGBOOK_BOOTSTRAP_ADMIN_MOBILE=+91XXXXXXXXXX SONGBOOK_BOOTSTRAP_ADMIN_EMAIL=<email> \
+     SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD='<strong password>'
+   # wait for the restart, sign in once with the mobile number, then remove them:
+   az webapp config appsettings delete -g $RG -n <webAppName> --setting-names \
+     SONGBOOK_BOOTSTRAP_ADMIN_MOBILE SONGBOOK_BOOTSTRAP_ADMIN_EMAIL SONGBOOK_BOOTSTRAP_ADMIN_PASSWORD
    ```
-   The bootstrap only runs while no admin exists (`AdminBootstrap`); it is audited as `ADMIN_BOOTSTRAPPED`.
+   The bootstrap only creates an admin while none exists (`AdminBootstrap`); it is audited as `ADMIN_BOOTSTRAPPED`.
+   The mobile is pre-verified (no SMS needed); the email is optional contact data.
+
+   **Admins created before sign-in moved to mobile numbers** have no mobile and cannot sign in. Set
+   `SONGBOOK_BOOTSTRAP_ADMIN_EMAIL` (their email) and `SONGBOOK_BOOTSTRAP_ADMIN_MOBILE` only (no password): on
+   startup the number is attached, pre-verified, to that admin (audited as `MOBILE_CHANGED`). Remove both
+   settings afterwards. Other existing accounts get a mobile from an admin on the user's page.
 3. Sign in, change the password in **Profile**, create categories and upload books in **Admin**.
 
 ## 5. Routine deployments and database migrations

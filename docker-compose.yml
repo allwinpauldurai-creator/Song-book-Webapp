@@ -17,13 +17,5 @@ services:
       timeout: 3s
       retries: 10
 
-  # Local email catcher for verification/reset emails (Phase 3). UI: http://localhost:8025
-  mailpit:
-    image: axllent/mailpit:v1.21.0
-    container_name: songbook-mailpit
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-
 volumes:
   songbook-pg:

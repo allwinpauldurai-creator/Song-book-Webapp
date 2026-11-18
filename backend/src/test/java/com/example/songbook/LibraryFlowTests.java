@@ -255,8 +255,9 @@ class LibraryFlowTests extends IntegrationTest {
         JsonNode detail = body(mvc.perform(bearer(get("/api/v1/admin/users/" + me.get("id").asText()), admin)).andReturn());
         mvc.perform(bearer(put("/api/v1/admin/users/" + me.get("id").asText()), admin)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("fullName", "Admin", "accountStatus", "ACTIVE",
-                                "roles", new String[]{"MEMBER"}, "version", detail.get("version").asLong()))))
+                        .content(toJson(Map.of("fullName", "Admin", "mobile", ADMIN_MOBILE, "mobileVerified", true,
+                                "accountStatus", "ACTIVE", "roles", new String[]{"MEMBER"},
+                                "version", detail.get("version").asLong()))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("LAST_ADMIN"));
     }
@@ -275,13 +276,24 @@ class LibraryFlowTests extends IntegrationTest {
     void adminCreatesUserAndManagesBookMetadata() throws Exception {
         String admin = adminToken();
         String email = uniqueEmail("created");
+        String mobile = uniqueMobile();
         mvc.perform(bearer(post("/api/v1/admin/users"), admin).contentType(MediaType.APPLICATION_JSON)
-                        .content(toJson(Map.of("fullName", "Created User", "email", email, "password", PASSWORD,
-                                "roles", new String[]{"MEMBER"}, "emailVerified", true))))
+                        .content(toJson(Map.of("fullName", "Created User", "mobile", mobile.substring(3),
+                                "email", email, "password", PASSWORD, "roles", new String[]{"MEMBER"},
+                                "mobileVerified", true))))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.emailVerified").value(true));
+                .andExpect(jsonPath("$.mobile").value(mobile))
+                .andExpect(jsonPath("$.mobileVerified").value(true));
         mvc.perform(bearer(get("/api/v1/admin/users"), admin).param("q", email))
                 .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(bearer(get("/api/v1/admin/users"), admin).param("q", mobile.substring(3)))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        login(mobile, PASSWORD); // admin vouched for the number: no SMS needed
+        mvc.perform(bearer(post("/api/v1/admin/users"), admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("fullName", "Duplicate", "mobile", mobile, "password", PASSWORD,
+                                "roles", new String[]{"MEMBER"}, "mobileVerified", true))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MOBILE_IN_USE"));
 
         UUID bookId = createPublishedBook(admin, "Editable " + UUID.randomUUID(), null);
         JsonNode book = body(mvc.perform(bearer(get("/api/v1/admin/books/" + bookId), admin)).andReturn());

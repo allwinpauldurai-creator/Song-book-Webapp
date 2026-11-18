@@ -14,6 +14,7 @@
 | 10 | Admin dashboard & management UI | **Delivered** (all admin pages + `/admin/stats`) |
 | 11 | Security review, performance, accessibility, E2E | **Delivered** (see `docs/SECURITY_REVIEW.md`) |
 | 12 | Azure deployment, CI/CD, monitoring, backups, runbooks | **Delivered as code, not yet deployed** - awaiting approval (needs domains D8 + Azure access) |
+| 13 | Mobile number + SMS code (OTP) identity instead of email | **Delivered** (2026-11-18); real SMS needs an MSG91 account + DLT templates |
 
 Phases 3–9 (backend) were built in one step at the user's request (2026-11-16), instead of one
 phase at a time.
@@ -224,3 +225,37 @@ Fixes found while validating:
 Resource provisioning itself (what-if/apply), managed certificates, Key Vault references resolving,
 App Insights URL masking, Azure Blob storage (`AzureBlobFileStorageService` never run against Azure),
 ACS SMTP sending, staging-slot swap, OIDC login. Follow `docs/RUNBOOK.md` §1–4 for the first deployment.
+
+## Phase 13: Mobile number + SMS codes replace email identity (2026-11-18)
+
+Why: on the first Azure deployment, verification emails could not be sent (no Azure Communication
+Services), so new members could not sign in. The owner chose the mobile number as the identity.
+
+Decisions: sign in with **mobile number + password**; the number is confirmed by a **6-digit SMS code** at
+sign-up, and codes are also used for password reset and for members changing their own number (code goes to
+the new number). Provider **MSG91** (Indian DLT rules apply) behind `SmsSender`; a `log` provider writes codes
+to the log for local/dev and refuses to start unless explicitly allowed. **Email is optional contact data**
+and nothing is emailed any more (SMTP/ACS, Mailpit and `spring-boot-starter-mail` removed). Existing
+email-only admins get a mobile through `SONGBOOK_BOOTSTRAP_ADMIN_MOBILE` (RUNBOOK §4).
+
+Changes:
+- Flyway `V2__mobile_identity.sql`: `users.mobile` (E.164, unique, checked), `mobile_verified(_at)`, `email`
+  nullable; new `otp_codes` table (hash only); `user_tokens` dropped.
+- API: `/auth/register`, `/auth/verify-mobile`, `/auth/resend-verification`, `/auth/login`,
+  `/auth/forgot-password`, `/auth/reset-password` take `mobile`; `/users/me/mobile` + `/mobile/confirm`;
+  admin create/update take `mobile`, `mobileVerified`, optional `email`; user search matches mobile.
+- SPA: register, code entry (resend countdown), login, two-step forgot password, profile (email + mobile
+  change dialog), admin users/memberships show mobile numbers.
+- Infra: `MAIL_*` settings removed; `SONGBOOK_SMS_*` / `MSG91_*` settings, `msg91-auth-key` secret
+  (prod), `smsProvider` / template / daily-limit parameters.
+
+| Check | Result |
+|---|---|
+| Backend `mvnw verify` | 95 pass (new: OTP expiry/burn/purpose/reuse, number normalisation, mobile change, cooldown, daily limit, MSG91 request format, provider safety) |
+| Frontend `tsc -b` / unit tests | clean / 47 pass |
+| Playwright (local dev, existing database) | 30 pass, 1 skipped (prod-build-only test) |
+| Upgrade on existing local data | V2 applied; email-only dev admin got its mobile attached at startup |
+| Live API flow (local) | register → code from log → verify → login with a differently typed number |
+| Bicep | builds; dev and prod parameter files compile |
+
+Not verified: real SMS delivery through MSG91 (needs account, DLT registration and template ids).

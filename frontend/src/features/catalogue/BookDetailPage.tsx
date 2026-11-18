@@ -1,21 +1,22 @@
 import { Link as RouterLink, useParams } from 'react-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Alert, Box, Breadcrumbs, Button, Chip, Container, Link, Skeleton, Stack, Typography } from '@mui/material';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import DownloadIcon from '@mui/icons-material/Download';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { ApiError } from '../../services/api/client';
-import { authApi, catalogueApi, queryKeys } from '../../services/api/endpoints';
+import { catalogueApi, queryKeys } from '../../services/api/endpoints';
 import { usePdfDownload } from '../reader/usePdfDownload';
 import type { Me } from '../../types/api';
 import { Cover, EmptyState, ErrorAlert } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { loginPath } from '../../utils/redirect';
 import { formatDate } from '../../utils/format';
+import VerifyMobileAlert from '../auth/VerifyMobileAlert';
 
 /** Why a signed-in user cannot read yet, mirroring the backend eligibility rule (docs/SECURITY.md §4). */
 function ineligibility(user: Me, isAdmin: boolean): 'unverified' | 'membership' | null {
-  if (!user.emailVerified) return 'unverified';
+  if (!user.mobileVerified) return 'unverified';
   if (!isAdmin && !user.membership?.valid) return 'membership';
   return null;
 }
@@ -34,7 +35,6 @@ export default function BookDetailPage() {
   const book = useQuery({ queryKey: queryKeys.book(id), queryFn: () => catalogueApi.book(id), retry: (n, e) => !(e instanceof ApiError && e.status === 404) && n < 2 });
 
   const download = usePdfDownload(id);
-  const resend = useMutation({ mutationFn: () => authApi.resendVerification(user!.email) });
 
   if (book.isError) {
     if (book.error instanceof ApiError && book.error.status === 404) {
@@ -111,17 +111,7 @@ export default function BookDetailPage() {
               )}
 
               {user && blocked === 'unverified' && (
-                <Alert
-                  severity="warning"
-                  sx={{ maxWidth: 560 }}
-                  action={
-                    <Button color="inherit" size="small" disabled={resend.isPending || resend.isSuccess} onClick={() => resend.mutate()}>
-                      {resend.isSuccess ? 'Sent' : 'Resend email'}
-                    </Button>
-                  }
-                >
-                  Verify your email address to read books. We sent a link to <strong>{user.email}</strong>.
-                </Alert>
+                <VerifyMobileAlert user={user} reason="to read books" sx={{ maxWidth: 560 }} />
               )}
 
               {user && blocked === 'membership' && (

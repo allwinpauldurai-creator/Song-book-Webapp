@@ -22,6 +22,7 @@ import { ApiError, errorMessage } from '../../services/api/client';
 import { adminApi, adminKeys } from '../../services/api/adminApi';
 import type { MembershipStatus, PageResponse, RequestStatus } from '../../types/api';
 import type { AccountStatus, BookStatus } from '../../types/admin';
+import { formatMobile } from '../../utils/mobile';
 
 // ---------------------------------------------------------------- errors
 
@@ -128,10 +129,17 @@ export { title as titleCase };
 export interface UserOption {
   id: string;
   fullName: string;
-  email: string;
+  mobile?: string | null;
+  email?: string | null;
 }
 
-/** Searches users by name or email (admin API). */
+/** "Name (+91 98765 43210)", falling back to the email for accounts without a mobile. */
+export function userOptionLabel(o: UserOption): string {
+  const contact = formatMobile(o.mobile) || o.email;
+  return contact ? `${o.fullName} (${contact})` : o.fullName;
+}
+
+/** Searches users by name, mobile or email (admin API). */
 export function UserPicker({
   value,
   onChange,
@@ -153,7 +161,7 @@ export function UserPicker({
   }, [input]);
   const q = { q: term || undefined, size: 20, sort: 'fullName,asc' };
   const users = useQuery({ queryKey: adminKeys.users(q), queryFn: () => adminApi.users(q), placeholderData: keepPreviousData, enabled: !disabled });
-  const options: UserOption[] = (users.data?.content ?? []).map(({ id, fullName, email }) => ({ id, fullName, email }));
+  const options: UserOption[] = (users.data?.content ?? []).map(({ id, fullName, mobile, email }) => ({ id, fullName, mobile, email }));
 
   return (
     <Autocomplete
@@ -163,7 +171,7 @@ export function UserPicker({
       inputValue={input}
       onInputChange={(_, v) => setInput(v)}
       options={value && !options.some((o) => o.id === value.id) ? [value, ...options] : options}
-      getOptionLabel={(o) => `${o.fullName} (${o.email})`}
+      getOptionLabel={userOptionLabel}
       isOptionEqualToValue={(a, b) => a.id === b.id}
       filterOptions={(x) => x}
       loading={users.isFetching}

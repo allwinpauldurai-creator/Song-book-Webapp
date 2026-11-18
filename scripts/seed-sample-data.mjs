@@ -5,7 +5,7 @@
 import zlib from 'node:zlib';
 
 const API = (process.argv[2] ?? 'http://localhost:8080') + '/api/v1';
-const ADMIN = { email: 'admin@songbook.local', password: 'ChangeMe-Admin-123' };
+const ADMIN = { mobile: '+919999999999', password: 'ChangeMe-Admin-123' }; // LocalDevApplication's bootstrap admin
 
 // ------------------------------------------------------------------ sample content
 
@@ -169,7 +169,7 @@ const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 
 const login = await call('/auth/login', json(ADMIN));
 token = login.accessToken;
-console.log(`Logged in as ${login.user.email}`);
+console.log(`Logged in as ${login.user.fullName} (${login.user.mobile})`);
 
 const existingCats = await call('/admin/categories');
 const catIds = Object.fromEntries(existingCats.map((c) => [c.name, c.id]));

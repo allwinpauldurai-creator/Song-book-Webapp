@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -24,11 +23,13 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import PersonIcon from '@mui/icons-material/Person';
 import RateReviewIcon from '@mui/icons-material/RateReview';
-import { authApi, memberApi, queryKeys } from '../../services/api/endpoints';
+import { memberApi, queryKeys } from '../../services/api/endpoints';
 import type { HistoryItem, MembershipSummary } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { Cover, ErrorAlert } from '../../components/common';
 import { formatDate } from '../../utils/format';
+import { formatMobile } from '../../utils/mobile';
+import VerifyMobileAlert from '../auth/VerifyMobileAlert';
 
 function MembershipCard({ membership, isAdmin }: { membership?: MembershipSummary | null; isAdmin: boolean }) {
   return (
@@ -148,9 +149,8 @@ function ReadingHistory({ canRead }: { canRead: boolean }) {
 
 export default function MePage() {
   const { user, isAdmin } = useAuth();
-  const resend = useMutation({ mutationFn: () => authApi.resendVerification(user!.email) });
   if (!user) return null;
-  const canRead = user.emailVerified && (isAdmin || !!user.membership?.valid);
+  const canRead = user.mobileVerified && (isAdmin || !!user.membership?.valid);
 
   return (
     <Container maxWidth="md" sx={{ py: 4, px: 2 }}>
@@ -158,18 +158,7 @@ export default function MePage() {
         Hello, {user.fullName.split(' ')[0]}
       </Typography>
       <Stack spacing={2}>
-        {!user.emailVerified && (
-          <Alert
-            severity="warning"
-            action={
-              <Button color="inherit" size="small" disabled={resend.isPending || resend.isSuccess} onClick={() => resend.mutate()}>
-                {resend.isSuccess ? 'Sent' : 'Resend email'}
-              </Button>
-            }
-          >
-            Verify your email address to start reading.
-          </Alert>
-        )}
+        {!user.mobileVerified && <VerifyMobileAlert user={user} reason="to start reading" />}
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
           <MembershipCard membership={user.membership} isAdmin={isAdmin} />
           <Card>
@@ -181,8 +170,13 @@ export default function MePage() {
                 {user.fullName}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-                {user.email}
+                {formatMobile(user.mobile)}
               </Typography>
+              {user.email && (
+                <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+                  {user.email}
+                </Typography>
+              )}
               <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                 {user.roles.map((r) => (
                   <Chip key={r} label={r.charAt(0) + r.slice(1).toLowerCase()} size="small" variant="outlined" />

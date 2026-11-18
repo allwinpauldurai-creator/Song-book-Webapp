@@ -1,8 +1,3 @@
-spring:
-  mail:
-    host: localhost
-    port: 1025
-
 songbook:
   frontend-base-url: http://localhost:5173
   jobs-enabled: false
@@ -16,7 +11,13 @@ songbook:
   security:
     allow-generated-secrets: true
     rate-limit-enabled: false
+  sms:
+    provider: log                # replaced by CapturingSmsSender in tests
+    allow-log-provider: true
+    resend-cooldown: 0s          # tests request several codes in a row; the cooldown has its own test
+    daily-limit: 100000
   bootstrap:
     admin-email: admin@test.local
+    admin-mobile: "+919000000001"
     admin-password: Admin-Password-123
     admin-full-name: Test Admin
