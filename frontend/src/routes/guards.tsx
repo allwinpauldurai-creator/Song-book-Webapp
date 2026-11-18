@@ -30,6 +30,12 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   return <RequireAuth>{status === 'authenticated' && !isAdmin ? <ForbiddenPage /> : children}</RequireAuth>;
 }
 
+/** The /admin area: admins see everything, publishers only book management (see AdminRoutes). */
+export function RequireStaff({ children }: { children: ReactNode }) {
+  const { status, isAdmin, isPublisher } = useAuth();
+  return <RequireAuth>{status === 'authenticated' && !isAdmin && !isPublisher ? <ForbiddenPage /> : children}</RequireAuth>;
+}
+
 /** For /login, /register etc.: a signed-in user is sent on instead of seeing the form. */
 export function RedirectIfAuthenticated({ children, to }: { children: ReactNode; to: string }) {
   const { status } = useAuth();

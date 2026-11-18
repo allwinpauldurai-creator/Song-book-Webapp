@@ -7,6 +7,7 @@ import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import CategoryIcon from '@mui/icons-material/Category';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import HistoryIcon from '@mui/icons-material/History';
+import { useAuth } from '../../contexts/AuthContext';
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: <DashboardIcon />, end: true },
@@ -18,9 +19,12 @@ const NAV = [
   { to: '/admin/audit', label: 'Audit log', icon: <HistoryIcon /> },
 ];
 
-function activeIndex(pathname: string): number {
+/** Publishers only manage the books they uploaded. */
+const PUBLISHER_NAV = [{ to: '/admin/books', label: 'My books', icon: <LibraryBooksIcon />, end: false }];
+
+function activeIndex(nav: typeof NAV, pathname: string): number {
   let best = 0;
-  NAV.forEach((n, i) => {
+  nav.forEach((n, i) => {
     if (n.end ? pathname === n.to : pathname === n.to || pathname.startsWith(n.to + '/')) best = i;
   });
   return best;
@@ -29,7 +33,9 @@ function activeIndex(pathname: string): number {
 /** Admin shell: side navigation on desktop, scrollable tabs on small screens. */
 export default function AdminLayout() {
   const { pathname } = useLocation();
-  const current = activeIndex(pathname);
+  const { isAdmin } = useAuth();
+  const nav = isAdmin ? NAV : PUBLISHER_NAV;
+  const current = activeIndex(nav, pathname);
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, px: 2 }}>
@@ -37,7 +43,7 @@ export default function AdminLayout() {
         <Box component="nav" aria-label="Admin">
           <Paper variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, position: 'sticky', top: 88 }}>
             <List dense>
-              {NAV.map((n, i) => (
+              {nav.map((n, i) => (
                 <ListItem key={n.to} disablePadding>
                   <ListItemButton component={NavLink} to={n.to} end={n.end} selected={i === current}>
                     <ListItemIcon sx={{ minWidth: 36 }}>{n.icon}</ListItemIcon>
@@ -54,7 +60,7 @@ export default function AdminLayout() {
             allowScrollButtonsMobile
             sx={{ display: { xs: 'flex', md: 'none' }, borderBottom: 1, borderColor: 'divider' }}
           >
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Tab key={n.to} label={n.label} component={NavLink} to={n.to} end={n.end} />
             ))}
           </Tabs>

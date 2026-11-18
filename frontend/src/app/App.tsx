@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import Layout from '../layouts/MainLayout';
-import { FullPageSpinner, RequireAdmin, RequireAuth } from '../routes/guards';
+import { FullPageSpinner, RequireAuth, RequireStaff } from '../routes/guards';
 import LandingPage from '../features/catalogue/LandingPage';
 import CataloguePage from '../features/catalogue/CataloguePage';
 import BookDetailPage from '../features/catalogue/BookDetailPage';
@@ -49,11 +49,11 @@ export default function App() {
           <Route
             path="admin/*"
             element={
-              <RequireAdmin>
+              <RequireStaff>
                 <Suspense fallback={<FullPageSpinner />}>
                   <AdminRoutes />
                 </Suspense>
-              </RequireAdmin>
+              </RequireStaff>
             }
           />
 

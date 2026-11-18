@@ -1,6 +1,6 @@
 // Mirrors the backend DTOs (backend/src/main/java/com/example/songbook/**/dto). Dates are ISO strings.
 
-export type Role = 'MEMBER' | 'ADMIN';
+export type Role = 'MEMBER' | 'PUBLISHER' | 'ADMIN';
 export type MembershipStatus = 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'CANCELLED';
 
 export interface FieldError {

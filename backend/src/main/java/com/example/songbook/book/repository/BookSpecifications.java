@@ -36,6 +36,10 @@ public final class BookSpecifications {
         return categoryId == null ? null : (root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId);
     }
 
+    public static Specification<Book> uploadedBy(UUID userId) {
+        return (root, query, cb) -> cb.equal(root.get("uploadedBy"), userId);
+    }
+
     public static Specification<Book> hasStatus(BookStatus status) {
         return status == null ? null : (root, query, cb) -> cb.equal(root.get("status"), status);
     }

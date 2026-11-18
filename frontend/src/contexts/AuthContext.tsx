@@ -12,6 +12,8 @@ interface AuthState {
   status: Status;
   user: Me | null;
   isAdmin: boolean;
+  /** May create books and manage the books they uploaded (admins manage all books). */
+  isPublisher: boolean;
   login: (mobile: string, password: string) => Promise<Me>;
   /** Creates a member account (no SMS code) and signs it in. */
   register: (body: RegisterBody) => Promise<Me>;
@@ -110,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       isAdmin: !!user?.roles.includes('ADMIN'),
+      isPublisher: !!user?.roles.includes('PUBLISHER'),
       login,
       register,
       logout,

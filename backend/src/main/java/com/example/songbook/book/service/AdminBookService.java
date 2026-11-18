@@ -25,6 +25,8 @@ import com.example.songbook.file.service.FileAssetService;
 import com.example.songbook.file.storage.FileStorageService;
 import com.example.songbook.file.validation.FileValidator;
 import com.example.songbook.file.validation.ValidatedFile;
+import com.example.songbook.role.RoleName;
+import com.example.songbook.security.authentication.CurrentUser;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -42,14 +44,17 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Admin book management. File uploads follow the "upload, then commit metadata, compensate on failure"
+ * Book management for admins and publishers. Admins manage every book; publishers only the books they uploaded
+ * (anyone else's book answers 404, so its existence is not revealed).
+ * File uploads follow the "upload, then commit metadata, compensate on failure"
  * pattern (see {@link FileAssetService}). Old PDF versions are never deleted.
  */
 @Service
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'PUBLISHER')")
 public class AdminBookService {
 
     private static final Map<String, String> SORTS = Map.of(
@@ -88,32 +93,35 @@ public class AdminBookService {
     // ------------------------------------------------------------------ queries
 
     @Transactional(readOnly = true)
-    public PageResponse<AdminBookSummary> search(String q, BookStatus status, UUID categoryId, Pageable pageable) {
+    public PageResponse<AdminBookSummary> search(String q, BookStatus status, UUID categoryId, Pageable pageable,
+                                                 UUID actorId) {
         Specification<Book> spec = Specification.where(BookSpecifications.matches(q))
                 .and(BookSpecifications.hasStatus(status))
-                .and(BookSpecifications.inCategory(categoryId));
+                .and(BookSpecifications.inCategory(categoryId))
+                .and(isAdmin() ? null : BookSpecifications.uploadedBy(actorId));
         Pageable safe = PageableUtils.sanitize(pageable, SORTS, Sort.by("updatedAt").descending());
         LocalDate today = LocalDate.now(clock);
         return PageResponse.from(books.findAll(spec, safe), b -> AdminBookSummary.from(b, today));
     }
 
     @Transactional(readOnly = true)
-    public AdminBookDetail get(UUID id) {
-        return AdminBookDetail.from(requireDetailed(id), LocalDate.now(clock));
+    public AdminBookDetail get(UUID id, UUID actorId) {
+        return AdminBookDetail.from(requireDetailed(id, actorId), LocalDate.now(clock));
     }
 
     @Transactional(readOnly = true)
-    public List<BookVersionResponse> versions(UUID bookId) {
-        Book book = requireDetailed(bookId);
+    public List<BookVersionResponse> versions(UUID bookId, UUID actorId) {
+        Book book = requireDetailed(bookId, actorId);
         UUID currentId = book.getCurrentVersion() == null ? null : book.getCurrentVersion().getId();
         return versions.findHistory(bookId).stream()
                 .map(v -> BookVersionResponse.from(v, v.getId().equals(currentId)))
                 .toList();
     }
 
-    /** Any version (including old ones) for admin review/download. */
+    /** Any version (including old ones) for review/download by an admin or the book's publisher. */
     @Transactional(readOnly = true)
-    public VersionFile versionFile(UUID bookId, UUID versionId) {
+    public VersionFile versionFile(UUID bookId, UUID versionId, UUID actorId) {
+        requireAccess(books.findById(bookId), actorId);
         BookVersion v = versions.findForBook(versionId, bookId)
                 .orElseThrow(() -> ApiException.notFound("Version not found"));
         FileAsset pdf = v.getPdfAsset();
@@ -170,7 +178,7 @@ public class AdminBookService {
             fileAssets.discard(coverAsset, "book-create-failed");
             throw e;
         }
-        return get(bookId);
+        return get(bookId, actorId);
     }
 
     // ------------------------------------------------------------------ update metadata
@@ -179,7 +187,7 @@ public class AdminBookService {
     public AdminBookDetail update(UUID id, UpdateBookRequest req, UUID actorId) {
         validateDates(req.effectiveDate(), req.expiryDate());
         rejectArchived(req.status());
-        Book book = requireDetailed(id);
+        Book book = requireDetailed(id, actorId);
         ApiException.checkVersion(req.version(), book.getVersion());
         if (book.getStatus() == BookStatus.ARCHIVED) {
             throw ApiException.conflict("BOOK_ARCHIVED", "Archived books cannot be edited");
@@ -203,7 +211,7 @@ public class AdminBookService {
 
     @Transactional
     public void archive(UUID id, UUID actorId) {
-        Book book = books.findById(id).orElseThrow(() -> ApiException.notFound("Book not found"));
+        Book book = requireAccess(books.findById(id), actorId);
         if (book.getStatus() == BookStatus.ARCHIVED) {
             return; // idempotent
         }
@@ -219,7 +227,7 @@ public class AdminBookService {
         if (changeNote != null && changeNote.length() > 500) {
             throw ApiException.badRequest("VALIDATION_FAILED", "Change note must be at most 500 characters");
         }
-        Book existing = books.findById(bookId).orElseThrow(() -> ApiException.notFound("Book not found"));
+        Book existing = requireAccess(books.findById(bookId), actorId);
         if (existing.getStatus() == BookStatus.ARCHIVED) {
             throw ApiException.conflict("BOOK_ARCHIVED", "Archived books cannot be changed");
         }
@@ -249,7 +257,7 @@ public class AdminBookService {
 
     /** Replaces the cover. The previous cover file is kept (referenced by audit history). */
     public AdminBookDetail replaceCover(UUID bookId, MultipartFile cover, UUID actorId) {
-        books.findById(bookId).orElseThrow(() -> ApiException.notFound("Book not found"));
+        requireAccess(books.findById(bookId), actorId);
         FileAsset coverAsset = null;
         try (ValidatedFile file = validator.validateImage(cover)) {
             coverAsset = fileAssets.upload(file, storageConfig.coversContainer(), coverKey(bookId, file.extension()),
@@ -265,13 +273,23 @@ public class AdminBookService {
             fileAssets.discard(coverAsset, "book-cover-failed");
             throw e;
         }
-        return get(bookId);
+        return get(bookId, actorId);
     }
 
     // ------------------------------------------------------------------ helpers
 
-    private Book requireDetailed(UUID id) {
-        return books.findDetailed(id).orElseThrow(() -> ApiException.notFound("Book not found"));
+    private Book requireDetailed(UUID id, UUID actorId) {
+        return requireAccess(books.findDetailed(id), actorId);
+    }
+
+    /** Admins may manage any book; publishers only their own. Anyone else's book looks missing (404). */
+    private static Book requireAccess(Optional<Book> found, UUID actorId) {
+        return found.filter(b -> isAdmin() || actorId.equals(b.getUploadedBy()))
+                .orElseThrow(() -> ApiException.notFound("Book not found"));
+    }
+
+    private static boolean isAdmin() {
+        return CurrentUser.hasRole(RoleName.ADMIN.name());
     }
 
     private static String pdfKey(UUID bookId, int version) {

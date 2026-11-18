@@ -34,7 +34,9 @@ public class AdminCategoryController {
         this.service = service;
     }
 
+    /** Publishers read the list for the book form; only admins change categories. */
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'PUBLISHER')")
     public List<AdminCategoryResponse> list() {
         return service.listAll();
     }

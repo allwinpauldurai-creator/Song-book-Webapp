@@ -47,6 +47,7 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [admin, setAdmin] = useState(false);
+  const [publisher, setPublisher] = useState(false);
   const [verified, setVerified] = useState(true);
   const e164 = normalizeMobile(mobile);
 
@@ -57,6 +58,7 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
       setEmail('');
       setPassword('');
       setAdmin(false);
+      setPublisher(false);
       setVerified(true);
     }
   }, [open]);
@@ -68,7 +70,7 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
         mobile: e164!,
         email: email.trim() || null,
         password,
-        roles: admin ? ['MEMBER', 'ADMIN'] : ['MEMBER'],
+        roles: ['MEMBER', ...(publisher ? (['PUBLISHER'] as const) : []), ...(admin ? (['ADMIN'] as const) : [])],
         mobileVerified: verified,
       }),
     onSuccess: (u) => {
@@ -101,6 +103,7 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
             error={!!pwProblem || !!fields.password} helperText={fields.password ?? pwProblem ?? 'Share it securely; the user can change it in their profile.'} />
           <FormGroup>
             <FormControlLabel control={<Checkbox checked={verified} onChange={(e) => setVerified(e.target.checked)} />} label="Mobile number already verified (you vouch for it; no SMS code needed)" />
+            <FormControlLabel control={<Checkbox checked={publisher} onChange={(e) => setPublisher(e.target.checked)} />} label="Publisher (can create books and edit their own)" />
             <FormControlLabel control={<Checkbox checked={admin} onChange={(e) => setAdmin(e.target.checked)} />} label="Administrator" />
           </FormGroup>
           {verified && <Alert severity="info">Admin-created users get no membership automatically. Add one on the user page.</Alert>}
@@ -150,6 +153,7 @@ export default function UsersPage() {
           <Select labelId="u-role" label="Role" value={values.role} onChange={(e) => set({ role: e.target.value })}>
             <MenuItem value="">Any</MenuItem>
             <MenuItem value="MEMBER">Member</MenuItem>
+            <MenuItem value="PUBLISHER">Publisher</MenuItem>
             <MenuItem value="ADMIN">Admin</MenuItem>
           </Select>
         </FormControl>

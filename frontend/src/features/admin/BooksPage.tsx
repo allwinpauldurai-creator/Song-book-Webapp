@@ -27,6 +27,7 @@ import { Cover, EmptyState } from '../../components/common';
 import { formatDate } from '../../utils/format';
 import { AdminError, BookChip, BOOK_STATUSES, PageHeader, Pager, titleCase } from './common';
 import { useUrlFilters } from './useUrlFilters';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function BooksPage() {
   const { values, page, size, set } = useUrlFilters(['q', 'status', 'categoryId'] as const);
@@ -43,12 +44,13 @@ export default function BooksPage() {
   const categories = useQuery({ queryKey: adminKeys.categories, queryFn: adminApi.categories });
   const q = { q: values.q || undefined, status: values.status as never, categoryId: values.categoryId || undefined, page, size, sort: 'updatedAt,desc' };
   const books = useQuery({ queryKey: adminKeys.books(q), queryFn: () => adminApi.books(q), placeholderData: keepPreviousData });
+  const { isAdmin } = useAuth();
 
   return (
     <>
       <PageHeader
-        title="Books"
-        subtitle="All books in every status. Only published books inside their date window appear in the public catalogue."
+        title={isAdmin ? 'Books' : 'My books'}
+        subtitle={`${isAdmin ? 'All books' : 'Books you published'} in every status. Only published books inside their date window appear in the public catalogue.`}
         actions={<Button variant="contained" startIcon={<AddIcon />} component={RouterLink} to="/admin/books/new">New book</Button>}
       />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>

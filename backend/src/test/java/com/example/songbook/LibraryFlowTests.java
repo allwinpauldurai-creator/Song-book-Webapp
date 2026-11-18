@@ -372,6 +372,66 @@ class LibraryFlowTests extends IntegrationTest {
     }
 
     @Test
+    void publisherManagesOnlyTheirOwnBooks() throws Exception {
+        String admin = adminToken();
+        Member m = newMember("publisher");
+        JsonNode detail = body(mvc.perform(bearer(get("/api/v1/admin/users/" + m.id()), admin)).andReturn());
+        mvc.perform(bearer(put("/api/v1/admin/users/" + m.id()), admin).contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("fullName", "Publisher", "mobile", m.mobile(), "mobileVerified", true,
+                                "accountStatus", "ACTIVE", "roles", new String[]{"MEMBER", "PUBLISHER"},
+                                "version", detail.get("version").asLong()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles", org.hamcrest.Matchers.containsInAnyOrder("MEMBER", "PUBLISHER")));
+        String publisher = m.token(); // roles are read from the database on every request
+
+        UUID adminBook = createPublishedBook(admin, "Admin Owned " + UUID.randomUUID(), null);
+        String title = "Publisher Owned " + UUID.randomUUID();
+        UUID ownBook = createPublishedBook(publisher, title, null);
+
+        // Lists only their own books; the category list is readable for the book form.
+        JsonNode list = body(mvc.perform(bearer(get("/api/v1/admin/books"), publisher).param("size", "100"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(list.get("content").findValuesAsText("id")).contains(ownBook.toString())
+                .doesNotContain(adminBook.toString());
+        mvc.perform(bearer(get("/api/v1/admin/categories"), publisher)).andExpect(status().isOk());
+
+        // Edits their own book.
+        JsonNode own = body(mvc.perform(bearer(get("/api/v1/admin/books/" + ownBook), publisher))
+                .andExpect(status().isOk()).andReturn());
+        mvc.perform(bearer(put("/api/v1/admin/books/" + ownBook), publisher).contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("title", title + " edited", "effectiveDate", LocalDate.now().toString(),
+                                "status", "PUBLISHED", "version", own.get("version").asLong()))))
+                .andExpect(status().isOk());
+        mvc.perform(bearer(multipart("/api/v1/admin/books/" + ownBook + "/versions")
+                        .file(new MockMultipartFile("pdf", "v2.pdf", "application/pdf", pdf(2))), publisher))
+                .andExpect(status().isCreated());
+
+        // Someone else's book looks missing.
+        JsonNode other = body(mvc.perform(bearer(get("/api/v1/admin/books/" + adminBook), admin)).andReturn());
+        mvc.perform(bearer(get("/api/v1/admin/books/" + adminBook), publisher)).andExpect(status().isNotFound());
+        mvc.perform(bearer(put("/api/v1/admin/books/" + adminBook), publisher).contentType(MediaType.APPLICATION_JSON)
+                        .content(toJson(Map.of("title", "Hijacked", "effectiveDate", LocalDate.now().toString(),
+                                "status", "PUBLISHED", "version", other.get("version").asLong()))))
+                .andExpect(status().isNotFound());
+        mvc.perform(bearer(multipart("/api/v1/admin/books/" + adminBook + "/versions")
+                        .file(new MockMultipartFile("pdf", "x.pdf", "application/pdf", pdf(1))), publisher))
+                .andExpect(status().isNotFound());
+        mvc.perform(bearer(get("/api/v1/admin/books/" + adminBook + "/versions"), publisher))
+                .andExpect(status().isNotFound());
+        mvc.perform(bearer(post("/api/v1/admin/books/" + adminBook + "/archive"), publisher))
+                .andExpect(status().isNotFound());
+
+        // No other admin powers.
+        mvc.perform(bearer(get("/api/v1/admin/users"), publisher)).andExpect(status().isForbidden());
+        mvc.perform(bearer(post("/api/v1/admin/categories"), publisher).contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("name", "Nope " + UUID.randomUUID())))).andExpect(status().isForbidden());
+        mvc.perform(bearer(get("/api/v1/admin/stats"), publisher)).andExpect(status().isForbidden());
+
+        // Admins still see and manage every book.
+        mvc.perform(bearer(get("/api/v1/admin/books/" + ownBook), admin)).andExpect(status().isOk());
+    }
+
+    @Test
     void invalidSortIsRejected() throws Exception {
         mvc.perform(get("/api/v1/books").param("sort", "passwordHash,asc"))
                 .andExpect(status().isBadRequest())
