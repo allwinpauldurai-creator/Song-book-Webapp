@@ -77,4 +77,4 @@ cd backend
 | `SONGBOOK_SMS_DAILY_LIMIT` | `500` | SMS codes per 24 h across all users |
 | `SONGBOOK_BOOTSTRAP_ADMIN_MOBILE` / `_EMAIL` / `_PASSWORD` / `_NAME` | — | Creates the first admin if none exists (mobile required; see RUNBOOK §4) |
 
-Generate a secret: `openssl rand -base64 32`.
+Generate a secret: `openssl rand -base64 32`. 
