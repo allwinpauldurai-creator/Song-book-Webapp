@@ -1,6 +1,7 @@
 package com.example.songbook.file.storage;
 
 import com.example.songbook.config.AppProperties;
+import com.example.songbook.file.entity.FileAsset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -46,8 +47,8 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
-    public Resource load(String container, String blobName) {
-        Path path = resolve(container, blobName);
+    public Resource load(FileAsset asset) {
+        Path path = resolve(asset.getContainerName(), asset.getBlobName());
         if (!Files.isRegularFile(path)) {
             throw new StorageException("Storage object not found");
         }

@@ -117,7 +117,7 @@ public class AdminBookService {
         BookVersion v = versions.findForBook(versionId, bookId)
                 .orElseThrow(() -> ApiException.notFound("Version not found"));
         FileAsset pdf = v.getPdfAsset();
-        return new VersionFile(storage.load(pdf.getContainerName(), pdf.getBlobName()),
+        return new VersionFile(storage.load(pdf),
                 v.getBook().getTitle() + "-v" + v.getVersionNumber());
     }
 

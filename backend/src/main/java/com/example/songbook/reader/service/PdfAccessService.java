@@ -77,7 +77,7 @@ public class PdfAccessService {
             throw ApiException.conflict("VERSION_CHANGED", "A newer version is available. Reopen the book.");
         }
         FileAsset pdf = book.getCurrentVersion().getPdfAsset();
-        return new PdfContent(storage.load(pdf.getContainerName(), pdf.getBlobName()), book.getTitle(),
+        return new PdfContent(storage.load(pdf), book.getTitle(),
                 claims.purpose() == Purpose.DOWNLOAD);
     }
 

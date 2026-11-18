@@ -60,7 +60,7 @@ public class BookCatalogueService {
         if (cover == null) {
             throw ApiException.notFound("Book has no cover");
         }
-        return new CoverImage(storage.load(cover.getContainerName(), cover.getBlobName()), cover.getContentType(),
+        return new CoverImage(storage.load(cover), cover.getContentType(),
                 cover.getChecksumSha256());
     }
 

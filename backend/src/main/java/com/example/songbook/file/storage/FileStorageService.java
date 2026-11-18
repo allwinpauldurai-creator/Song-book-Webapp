@@ -1,5 +1,6 @@
 package com.example.songbook.file.storage;
 
+import com.example.songbook.file.entity.FileAsset;
 import org.springframework.core.io.Resource;
 
 import java.nio.file.Path;
@@ -17,9 +18,11 @@ public interface FileStorageService {
 
     /**
      * Returns a re-readable resource with a known content length, so Spring MVC can serve
-     * HTTP Range requests from it.
+     * HTTP Range requests from it. Opening it must not touch the network: callers often hold a
+     * database transaction, and the bytes are only read later, while the response is written.
+     * The length comes from {@link FileAsset#getFileSize()}, recorded at upload.
      */
-    Resource load(String container, String blobName);
+    Resource load(FileAsset asset);
 
     /** Deletes the object if present. */
     void delete(String container, String blobName);

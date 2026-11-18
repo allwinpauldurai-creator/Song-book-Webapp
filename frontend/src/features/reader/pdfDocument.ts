@@ -4,8 +4,11 @@ import type { TicketedRangeLoader } from './ticketedRangeLoader';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-/** Bytes fetched per range request, and the size of the first probe. */
-const CHUNK = 64 * 1024;
+/**
+ * Bytes fetched per range request, and the size of the first probe. Each request re-checks the
+ * ticket and eligibility on the server, so fewer, larger chunks are cheaper than many small ones.
+ */
+const CHUNK = 256 * 1024;
 
 /** Base URL of the PDF.js runtime assets (see vite-plugin-pdfjs-assets.ts). */
 const ASSETS = `${import.meta.env.BASE_URL}pdfjs/`;
