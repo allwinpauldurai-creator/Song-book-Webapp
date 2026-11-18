@@ -2,7 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useQueryClient } from '@tanstack/react-query';
 import { onSessionExpired, refreshAccessToken, setAccessToken } from '../services/api/client';
 import { authApi, usersApi } from '../services/api/endpoints';
-import type { Me } from '../types/api';
+import type { LoginResponse, Me } from '../types/api';
+
+type RegisterBody = Parameters<typeof authApi.register>[0];
 
 type Status = 'loading' | 'authenticated' | 'anonymous';
 
@@ -10,7 +12,11 @@ interface AuthState {
   status: Status;
   user: Me | null;
   isAdmin: boolean;
+  /** May create books and manage the books they uploaded (admins manage all books). */
+  isPublisher: boolean;
   login: (mobile: string, password: string) => Promise<Me>;
+  /** Creates a member account (no SMS code) and signs it in. */
+  register: (body: RegisterBody) => Promise<Me>;
   logout: () => Promise<void>;
   /** Re-reads /users/me, e.g. after the profile or membership changed. */
   reloadUser: () => Promise<void>;
@@ -67,14 +73,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyUser],
   );
 
-  const login = useCallback(
-    async (mobile: string, password: string) => {
-      const res = await authApi.login(mobile, password);
+  const startSession = useCallback(
+    (res: LoginResponse) => {
       setAccessToken(res.accessToken);
       applyUser(res.user);
       return res.user;
     },
     [applyUser],
+  );
+
+  const login = useCallback(
+    async (mobile: string, password: string) => startSession(await authApi.login(mobile, password)),
+    [startSession],
+  );
+
+  const register = useCallback(
+    async (body: RegisterBody) => startSession(await authApi.register(body)),
+    [startSession],
   );
 
   const logout = useCallback(async () => {
@@ -97,11 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       user,
       isAdmin: !!user?.roles.includes('ADMIN'),
+      isPublisher: !!user?.roles.includes('PUBLISHER'),
       login,
+      register,
       logout,
       reloadUser,
     }),
-    [status, user, login, logout, reloadUser],
+    [status, user, login, register, logout, reloadUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -29,7 +29,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Cover, ErrorAlert } from '../../components/common';
 import { formatDate } from '../../utils/format';
 import { formatMobile } from '../../utils/mobile';
-import VerifyMobileAlert from '../auth/VerifyMobileAlert';
 
 function MembershipCard({ membership, isAdmin }: { membership?: MembershipSummary | null; isAdmin: boolean }) {
   return (
@@ -150,7 +149,7 @@ function ReadingHistory({ canRead }: { canRead: boolean }) {
 export default function MePage() {
   const { user, isAdmin } = useAuth();
   if (!user) return null;
-  const canRead = user.mobileVerified && (isAdmin || !!user.membership?.valid);
+  const canRead = isAdmin || !!user.membership?.valid;
 
   return (
     <Container maxWidth="md" sx={{ py: 4, px: 2 }}>
@@ -158,7 +157,6 @@ export default function MePage() {
         Hello, {user.fullName.split(' ')[0]}
       </Typography>
       <Stack spacing={2}>
-        {!user.mobileVerified && <VerifyMobileAlert user={user} reason="to start reading" />}
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
           <MembershipCard membership={user.membership} isAdmin={isAdmin} />
           <Card>

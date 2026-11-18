@@ -7,7 +7,6 @@ import com.example.songbook.auth.dto.AuthDtos.MessageResponse;
 import com.example.songbook.auth.dto.AuthDtos.MobileRequest;
 import com.example.songbook.auth.dto.AuthDtos.RegisterRequest;
 import com.example.songbook.auth.dto.AuthDtos.ResetPasswordRequest;
-import com.example.songbook.auth.dto.AuthDtos.VerifyMobileRequest;
 import com.example.songbook.auth.service.AuthService;
 import com.example.songbook.auth.service.RefreshTokenService;
 import com.example.songbook.common.exception.ApiException;
@@ -58,32 +57,21 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "Self-register a member account (response does not reveal whether the number exists)")
-    public ResponseEntity<MessageResponse> register(@Valid @RequestBody RegisterRequest request) {
-        authService.register(request);
-        return ResponseEntity.accepted().body(new MessageResponse(
-                "Registration received. Enter the code sent to your mobile number by SMS."));
-    }
-
-    @PostMapping("/verify-mobile")
-    @Operation(summary = "Confirm the mobile number with the SMS code; creates the default membership")
-    public ResponseEntity<Void> verifyMobile(@Valid @RequestBody VerifyMobileRequest request) {
-        authService.verifyMobile(request.mobile(), request.code());
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/resend-verification")
-    public ResponseEntity<MessageResponse> resendVerification(@Valid @RequestBody MobileRequest request) {
-        authService.resendVerification(request.mobile());
-        return ResponseEntity.accepted().body(GENERIC_SMS_MESSAGE);
+    @Operation(summary = "Self-register a member account (no SMS code) and sign it in; "
+            + "409 MOBILE_ALREADY_REGISTERED if the number has an account")
+    public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return signedIn(HttpStatus.CREATED, authService.register(request));
     }
 
     @PostMapping("/login")
     @Operation(summary = "Log in; returns an access token and sets the HttpOnly refresh cookie")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        AuthService.LoginResult result = authService.login(request);
+        return signedIn(HttpStatus.OK, authService.login(request));
+    }
+
+    private ResponseEntity<LoginResponse> signedIn(HttpStatus status, AuthService.LoginResult result) {
         AccessTokenService.IssuedToken token = accessTokens.issue(result.user());
-        return ResponseEntity.ok()
+        return ResponseEntity.status(status)
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(result.refreshToken()).toString())
                 .body(new LoginResponse(token.value(), "Bearer", token.expiresInSeconds(),
                         userService.me(result.user().getId())));

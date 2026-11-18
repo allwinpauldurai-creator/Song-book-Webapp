@@ -90,9 +90,6 @@ public class PdfAccessService {
         if (!user.canAuthenticate(now)) {
             throw ApiException.forbidden("ACCOUNT_INACTIVE", "Your account is not active");
         }
-        if (!user.isMobileVerified()) {
-            throw ApiException.forbidden("MOBILE_NOT_VERIFIED", "Please verify your mobile number");
-        }
         boolean bypass = adminsBypassMembership && user.hasRole(RoleName.ADMIN);
         if (!bypass && !memberships.hasValidMembership(userId)) {
             throw ApiException.forbidden("MEMBERSHIP_INVALID", "Your membership is not active");

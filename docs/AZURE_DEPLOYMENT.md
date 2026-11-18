@@ -48,7 +48,7 @@ Contributor** on the two containers only, and **Key Vault Secrets User** on the 
 | `SONGBOOK_TIMEZONE`, `SONGBOOK_MEMBERSHIP_DAYS` | parameters (D5, D1) |
 | `SONGBOOK_STORAGE_PROVIDER`, `AZURE_STORAGE_ACCOUNT_ENDPOINT` | `azure`, blob endpoint |
 | `SONGBOOK_SMS_PROVIDER`, `SONGBOOK_SMS_ALLOW_LOG`, `SONGBOOK_SMS_DAILY_LIMIT` | `log` + `true` on dev (codes in App Insights), `msg91` + `false` on prod; parameters `smsProvider`, `smsDailyLimit` |
-| `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_VERIFY` / `_RESET` / `_CHANGE` | Key Vault ref, DLT template id parameters (only when `smsProvider = msg91`) |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_OTP` (+ optional `_RESET` / `_CHANGE`) | Key Vault ref, DLT template id parameters (only when `smsProvider = msg91`) |
 | `APPLICATIONINSIGHTS_*` | connection string, agent `~3`, URL masking config |
 
 The SPA gets its API origin at build time (`VITE_API_BASE_URL`, set by the deploy workflow).

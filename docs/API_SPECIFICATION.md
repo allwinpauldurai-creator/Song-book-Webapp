@@ -13,16 +13,14 @@ Base path `/api/v1`. JSON unless noted. Live OpenAPI: `/swagger-ui.html` (disabl
   `ACCOUNT_LOCKED`, `ACCOUNT_DISABLED`, `MOBILE_NOT_VERIFIED`, `MOBILE_IN_USE`, `SAME_MOBILE`, `INVALID_REFRESH_TOKEN`, `INVALID_ORIGIN`, `LAST_ADMIN`, `EMAIL_IN_USE`,
   `CATEGORY_EXISTS`, `ACTIVE_MEMBERSHIP_EXISTS`, `ALREADY_REVIEWED`, `BOOK_ARCHIVED`, `INVALID_TICKET`, `VERSION_CHANGED`,
   `RATE_LIMITED` (429), `STORAGE_UNAVAILABLE` (503), `INTERNAL_ERROR`.
-- 401 = not authenticated; 403 = authenticated but not allowed. PDF eligibility failures are 403 with code `ACCOUNT_INACTIVE`, `MOBILE_NOT_VERIFIED` or `MEMBERSHIP_INVALID`; an unavailable book is 404.
+- 401 = not authenticated; 403 = authenticated but not allowed. PDF eligibility failures are 403 with code `ACCOUNT_INACTIVE` or `MEMBERSHIP_INVALID`; an unavailable book is 404.
 - Updates to versioned resources send `version`; mismatch → 409.
 
 ## Auth
 
 | Method | Path | Access | Request → Response |
 |---|---|---|---|
-| POST | `/auth/register` | Public | `{fullName, mobile, email?, password}` → 202 (generic message, even if the number exists); sends an SMS code |
-| POST | `/auth/verify-mobile` | Public | `{mobile, code}` → 204, creates the default membership; 400 `INVALID_CODE` |
-| POST | `/auth/resend-verification` | Public | `{mobile}` → 202 generic |
+| POST | `/auth/register` | Public | `{fullName, mobile, email?, password}` → 201, same body and refresh cookie as login (signed in); creates the default membership; no SMS code. 409 `MOBILE_ALREADY_REGISTERED` if the number has an account |
 | POST | `/auth/login` | Public | `{mobile, password}` → 200 `{accessToken, expiresIn, user}` + Set-Cookie refresh |
 | POST | `/auth/refresh` | Refresh cookie | → 200 `{accessToken, expiresIn}` + rotated cookie |
 | POST | `/auth/logout` | Refresh cookie (works after the access token expired) | → 204, revokes refresh family, clears cookie |

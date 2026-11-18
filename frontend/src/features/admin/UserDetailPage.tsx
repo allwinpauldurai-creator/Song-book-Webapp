@@ -12,6 +12,7 @@ import {
   FormControl,
   FormControlLabel,
   FormGroup,
+  FormHelperText,
   FormLabel,
   IconButton,
   InputLabel,
@@ -52,6 +53,7 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
   const [email, setEmail] = useState(user.email ?? '');
   const [status, setStatus] = useState<AccountStatus>(user.accountStatus);
   const [isAdmin, setIsAdmin] = useState(user.roles.includes('ADMIN'));
+  const [isPublisher, setIsPublisher] = useState(user.roles.includes('PUBLISHER'));
   useEffect(() => {
     setFullName(user.fullName);
     setMobile(user.mobile ?? '');
@@ -59,12 +61,15 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
     setEmail(user.email ?? '');
     setStatus(user.accountStatus);
     setIsAdmin(user.roles.includes('ADMIN'));
+    setIsPublisher(user.roles.includes('PUBLISHER'));
   }, [user]);
   const e164 = normalizeMobile(mobile);
 
   const save = useMutation({
     mutationFn: () => {
-      const roles: Role[] = isAdmin ? ['MEMBER', 'ADMIN'] : ['MEMBER'];
+      const roles: Role[] = ['MEMBER'];
+      if (isPublisher) roles.push('PUBLISHER');
+      if (isAdmin) roles.push('ADMIN');
       return adminApi.updateUser(user.id, {
         fullName: fullName.trim(),
         mobile: e164!,
@@ -89,7 +94,8 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
     mobileVerified !== user.mobileVerified ||
     email.trim() !== (user.email ?? '') ||
     status !== user.accountStatus ||
-    isAdmin !== user.roles.includes('ADMIN');
+    isAdmin !== user.roles.includes('ADMIN') ||
+    isPublisher !== user.roles.includes('PUBLISHER');
   const self = user.id === me?.id;
   const valid = !!fullName.trim() && !!e164;
 
@@ -126,8 +132,10 @@ function AccountForm({ user }: { user: AdminUserDetail }) {
               <FormLabel component="legend">Roles</FormLabel>
               <FormGroup row>
                 <FormControlLabel control={<Checkbox checked disabled />} label="Member" />
+                <FormControlLabel control={<Checkbox checked={isPublisher} onChange={(e) => setIsPublisher(e.target.checked)} />} label="Publisher" />
                 <FormControlLabel control={<Checkbox checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />} label="Administrator" />
               </FormGroup>
+              <FormHelperText>Publishers can create books and edit the books they published. Administrators manage everything.</FormHelperText>
             </FormControl>
             {self && (status !== 'ACTIVE' || !isAdmin) && (
               <Alert severity="warning">You are editing your own account. Disabling it or removing your admin role takes effect immediately.</Alert>

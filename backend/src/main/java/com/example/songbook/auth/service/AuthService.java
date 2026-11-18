@@ -30,10 +30,13 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Registration, mobile verification, login and password reset. The mobile number (E.164) is the identity;
- * SMS codes come from {@link OtpService}.
+ * Registration, login and password reset. The mobile number (E.164) is the identity; SMS codes come from
+ * {@link OtpService}.
  * <p>
- * Responses for register / resend / forgot are identical whether or not the number exists (no enumeration).
+ * Registration needs no SMS code: the account and its default membership are created at once and the member is
+ * signed in. The mobile stays "unverified" until the member proves it with a code (password reset or mobile
+ * change). Registering a number that already has an account is refused with {@code MOBILE_ALREADY_REGISTERED}.
+ * Forgot-password responses are identical whether or not the number exists.
  * Code checks run in a transaction that commits even when the code is wrong, so failed attempts are counted;
  * the error is thrown afterwards.
  */
@@ -75,21 +78,21 @@ public class AuthService {
 
     // ------------------------------------------------------------------ registration
 
-    public void register(RegisterRequest req) {
+    /**
+     * Creates a MEMBER account with its default membership and signs it in. No SMS code is involved.
+     *
+     * @throws ApiException 409 {@code MOBILE_ALREADY_REGISTERED} when the number already has an account
+     */
+    public LoginResult register(RegisterRequest req) {
         String mobile = PhoneNumbers.normalize(req.mobile());
         rateLimiter.check("register:ip:" + RequestUtils.clientIp(), 5, Duration.ofMinutes(10));
         rateLimiter.check("register:mobile:" + mobile, 3, Duration.ofMinutes(15));
         PasswordPolicy.check(req.password(), mobile);
+        LoginResult result;
         try {
-            tx.executeWithoutResult(s -> {
-                Optional<User> existing = users.findByMobile(mobile);
-                if (existing.isPresent()) {
-                    // Same response as a new registration. Re-send the code if still unverified.
-                    User user = existing.get();
-                    if (!user.isMobileVerified() && user.getAccountStatus() == AccountStatus.ACTIVE) {
-                        otp.issue(user, OtpPurpose.MOBILE_VERIFICATION, mobile);
-                    }
-                    return;
+            result = tx.execute(s -> {
+                if (users.existsByMobile(mobile)) {
+                    return null;
                 }
                 // Email is optional contact data. If another account already uses it, drop it silently rather
                 // than revealing that the address is registered.
@@ -101,48 +104,17 @@ public class AuthService {
                 user.getRoles().add(roles.require(RoleName.MEMBER)); // never ADMIN via public registration
                 users.save(user);
                 audit.record(user.getId(), AuditActions.USER_REGISTERED, "USER", user.getId(), null);
-                otp.issue(user, OtpPurpose.MOBILE_VERIFICATION, mobile);
+                memberships.createDefaultIfAbsent(user);
+                return LoginResult.success(user, refreshTokens.issueNewFamily(user));
             });
         } catch (DataIntegrityViolationException e) {
-            // Concurrent registration with the same number: behave like the duplicate case.
+            result = null; // concurrent registration with the same number
         }
-    }
-
-    public void resendVerification(String rawMobile) {
-        String mobile = PhoneNumbers.normalize(rawMobile);
-        rateLimiter.check("resend:ip:" + RequestUtils.clientIp(), 5, Duration.ofMinutes(15));
-        rateLimiter.check("resend:mobile:" + mobile, 3, Duration.ofMinutes(15));
-        tx.executeWithoutResult(s -> users.findByMobile(mobile)
-                .filter(u -> !u.isMobileVerified() && u.getAccountStatus() == AccountStatus.ACTIVE)
-                .ifPresent(u -> otp.issue(u, OtpPurpose.MOBILE_VERIFICATION, mobile)));
-    }
-
-    public void verifyMobile(String rawMobile, String code) {
-        String mobile = PhoneNumbers.normalize(rawMobile);
-        rateLimiter.check("verify:ip:" + RequestUtils.clientIp(), 20, Duration.ofMinutes(15));
-        rateLimiter.check("verify:mobile:" + mobile, 10, Duration.ofMinutes(15));
-        Boolean verified = tx.execute(s -> {
-            Optional<User> found = users.findByMobile(mobile);
-            if (found.isEmpty()) {
-                return false;
-            }
-            User user = found.get();
-            boolean matched = otp.verify(user, OtpPurpose.MOBILE_VERIFICATION, code)
-                    .filter(c -> c.getMobile().equals(user.getMobile()))
-                    .isPresent();
-            if (!matched) {
-                return false;
-            }
-            if (!user.isMobileVerified()) {
-                user.markMobileVerified(Instant.now(clock));
-                audit.record(user.getId(), AuditActions.MOBILE_VERIFIED, "USER", user.getId(), null);
-            }
-            memberships.createDefaultIfAbsent(user);
-            return true;
-        });
-        if (!Boolean.TRUE.equals(verified)) {
-            throw OtpService.invalidCode();
+        if (result == null) {
+            throw ApiException.conflict("MOBILE_ALREADY_REGISTERED",
+                    "This mobile number is already registered. Sign in, or reset your password if you forgot it.");
         }
+        return result;
     }
 
     // ------------------------------------------------------------------ login
@@ -179,9 +151,6 @@ public class AuthService {
             if (user.getAccountStatus() != AccountStatus.ACTIVE) {
                 return LoginResult.failure("ACCOUNT_DISABLED");
             }
-            if (!user.isMobileVerified()) {
-                return LoginResult.failure("MOBILE_NOT_VERIFIED");
-            }
             user.resetFailedLogins();
             audit.record(user.getId(), AuditActions.LOGIN_SUCCEEDED, "USER", user.getId(), null);
             String refresh = refreshTokens.issueNewFamily(user);
@@ -193,8 +162,6 @@ public class AuthService {
                 case "ACCOUNT_LOCKED" -> ApiException.unauthorized("ACCOUNT_LOCKED",
                         "Account is temporarily locked. Try again later.");
                 case "ACCOUNT_DISABLED" -> ApiException.forbidden("ACCOUNT_DISABLED", "Account is disabled");
-                case "MOBILE_NOT_VERIFIED" -> ApiException.forbidden("MOBILE_NOT_VERIFIED",
-                        "Please verify your mobile number before logging in");
                 default -> invalidCredentials();
             };
         }
@@ -255,7 +222,6 @@ public class AuthService {
             if (!user.isMobileVerified()) {
                 user.markMobileVerified(now);
                 audit.record(user.getId(), AuditActions.MOBILE_VERIFIED, "USER", user.getId(), null);
-                memberships.createDefaultIfAbsent(user);
             }
             refreshTokens.revokeAll(user.getId());
             audit.record(user.getId(), AuditActions.PASSWORD_RESET, "USER", user.getId(), null);

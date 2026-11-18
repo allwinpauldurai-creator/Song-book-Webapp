@@ -23,6 +23,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon from '@mui/icons-material/Person';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { useAuth } from '../contexts/AuthContext';
 import { loginPath } from '../utils/redirect';
 import { formatMobile } from '../utils/mobile';
@@ -69,7 +70,7 @@ function HeaderSearch() {
 }
 
 function UserMenu() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isPublisher, logout } = useAuth();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   if (!user) return null;
@@ -113,6 +114,14 @@ function UserMenu() {
           </ListItemIcon>
           My requests
         </MenuItem>
+        {isPublisher && !isAdmin && (
+          <MenuItem onClick={() => go('/admin/books')}>
+            <ListItemIcon>
+              <LibraryBooksIcon fontSize="small" />
+            </ListItemIcon>
+            My books
+          </MenuItem>
+        )}
         {isAdmin && (
           <MenuItem onClick={() => go('/admin')}>
             <ListItemIcon>
@@ -141,7 +150,7 @@ function UserMenu() {
 export default function Layout() {
   const { status } = useAuth();
   const location = useLocation();
-  const onAuthPage = /^\/(login|register|forgot-password|verify-mobile)/.test(location.pathname);
+  const onAuthPage = /^\/(login|register|forgot-password)/.test(location.pathname);
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
@@ -155,7 +164,7 @@ export default function Layout() {
             >
               <MusicNoteIcon />
               <Typography variant="h6" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
-                Song Book
+                IMS Books
               </Typography>
             </Box>
             <Button color="inherit" component={RouterLink} to="/books" sx={{ display: { xs: 'none', md: 'inline-flex' } }}>
@@ -187,7 +196,7 @@ export default function Layout() {
         <Outlet />
       </Box>
       <Box component="footer" sx={{ py: 3, textAlign: 'center', color: 'text.secondary' }}>
-        <Typography variant="body2">© {new Date().getFullYear()} Song Book</Typography>
+        <Typography variant="body2">© {new Date().getFullYear()} IMS Books</Typography>
       </Box>
     </Box>
   );

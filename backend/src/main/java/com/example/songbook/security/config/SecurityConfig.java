@@ -68,8 +68,6 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 API + "/auth/register",
-                                API + "/auth/verify-mobile",
-                                API + "/auth/resend-verification",
                                 API + "/auth/login",
                                 API + "/auth/refresh",
                                 API + "/auth/logout",
@@ -83,6 +81,10 @@ public class SecurityConfig {
                                 API + "/books/{bookId}/cover").permitAll()
                         // PDF bytes: authorized by a signed, short-lived ticket checked in the controller.
                         .requestMatchers(HttpMethod.GET, API + "/books/{bookId}/content").permitAll()
+                        // Publishers manage their own books (ownership is checked in AdminBookService)
+                        // and need the category list for the book form.
+                        .requestMatchers(API + "/admin/books", API + "/admin/books/**").hasAnyRole("ADMIN", "PUBLISHER")
+                        .requestMatchers(HttpMethod.GET, API + "/admin/categories").hasAnyRole("ADMIN", "PUBLISHER")
                         .requestMatchers(API + "/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated());
         return http.build();

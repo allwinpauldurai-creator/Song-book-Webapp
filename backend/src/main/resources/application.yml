@@ -69,7 +69,7 @@ songbook:
     # PENDING BUSINESS DECISION D1: default length of an automatically created membership.
     # 0 = no end date. Current default (365) is a placeholder until confirmed.
     default-duration-days: ${SONGBOOK_MEMBERSHIP_DAYS:365}
-    auto-create-on-mobile-verification: ${SONGBOOK_MEMBERSHIP_AUTO:true}  # decision D2
+    auto-create-on-registration: ${SONGBOOK_MEMBERSHIP_AUTO:true}         # decision D2
     admins-bypass-membership: true                                         # decision D3
   storage:
     provider: ${SONGBOOK_STORAGE_PROVIDER:local}
@@ -94,7 +94,10 @@ songbook:
     daily-limit: ${SONGBOOK_SMS_DAILY_LIMIT:500}
     msg91:
       auth-key: ${MSG91_AUTH_KEY:}
-      template-verify: ${MSG91_TEMPLATE_VERIFY:}
+      # One DLT-approved OTP template serves password reset and mobile change; reset/change may override it.
+      template-otp: ${MSG91_TEMPLATE_OTP:}
+      # Name of the OTP variable in the MSG91 template text (##otp## -> otp).
+      otp-variable: ${MSG91_OTP_VARIABLE:otp}
       template-reset: ${MSG91_TEMPLATE_RESET:}
       template-change: ${MSG91_TEMPLATE_CHANGE:}
   bootstrap:

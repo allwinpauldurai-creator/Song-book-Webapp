@@ -39,8 +39,8 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/books")
-@PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "Admin - books")
+@PreAuthorize("hasAnyRole('ADMIN', 'PUBLISHER')")
+@Tag(name = "Admin - books", description = "Admins manage every book; publishers only the books they uploaded")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminBookController {
 
@@ -55,7 +55,7 @@ public class AdminBookController {
                                                @RequestParam(required = false) BookStatus status,
                                                @RequestParam(required = false) UUID categoryId,
                                                @ParameterObject Pageable pageable) {
-        return service.search(q, status, categoryId, pageable);
+        return service.search(q, status, categoryId, pageable, CurrentUser.id());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -69,7 +69,7 @@ public class AdminBookController {
 
     @GetMapping("/{bookId}")
     public AdminBookDetail get(@PathVariable UUID bookId) {
-        return service.get(bookId);
+        return service.get(bookId, CurrentUser.id());
     }
 
     @PutMapping("/{bookId}")
@@ -84,7 +84,7 @@ public class AdminBookController {
 
     @GetMapping("/{bookId}/versions")
     public List<BookVersionResponse> versions(@PathVariable UUID bookId) {
-        return service.versions(bookId);
+        return service.versions(bookId, CurrentUser.id());
     }
 
     @PostMapping(value = "/{bookId}/versions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -99,7 +99,7 @@ public class AdminBookController {
     @GetMapping("/{bookId}/versions/{versionId}/content")
     @Operation(summary = "Download any version (including historical) for review")
     public ResponseEntity<Resource> versionContent(@PathVariable UUID bookId, @PathVariable UUID versionId) {
-        AdminBookService.VersionFile file = service.versionFile(bookId, versionId);
+        AdminBookService.VersionFile file = service.versionFile(bookId, versionId, CurrentUser.id());
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .cacheControl(CacheControl.noStore().cachePrivate())

@@ -25,7 +25,8 @@ class AdminStatsTests extends IntegrationTest {
         String admin = adminToken();
         JsonNode before = stats(admin);
 
-        Member member = newMember("stats"); // verified -> default ACTIVE membership
+        // Registration creates the default ACTIVE membership; the mobile stays unverified (no SMS code).
+        Member member = newMember("stats");
         register(uniqueMobile(), PASSWORD);
         UUID category = createCategory(admin, "Stats " + UUID.randomUUID());
         UUID book = createPublishedBook(admin, "Stats book", category);
@@ -38,9 +39,9 @@ class AdminStatsTests extends IntegrationTest {
 
         assertThat(after.at("/users/total").asLong() - before.at("/users/total").asLong()).isEqualTo(2);
         assertThat(after.at("/users/active").asLong() - before.at("/users/active").asLong()).isEqualTo(2);
-        assertThat(after.at("/users/unverified").asLong() - before.at("/users/unverified").asLong()).isEqualTo(1);
+        assertThat(after.at("/users/unverified").asLong() - before.at("/users/unverified").asLong()).isEqualTo(2);
         assertThat(after.at("/users/activeAdmins").asLong()).isGreaterThanOrEqualTo(1);
-        assertThat(after.get("membershipsValidToday").asLong() - before.get("membershipsValidToday").asLong()).isEqualTo(1);
+        assertThat(after.get("membershipsValidToday").asLong() - before.get("membershipsValidToday").asLong()).isEqualTo(2);
         assertThat(after.at("/booksByStatus/PUBLISHED").asLong() - before.at("/booksByStatus/PUBLISHED").asLong()).isEqualTo(1);
         assertThat(after.get("pendingRequests").asLong() - before.get("pendingRequests").asLong()).isEqualTo(1);
         // Every status is present even when zero, so the UI never sees a missing key.

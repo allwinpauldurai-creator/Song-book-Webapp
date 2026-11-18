@@ -12,11 +12,9 @@ import { Cover, EmptyState, ErrorAlert } from '../../components/common';
 import { useAuth } from '../../contexts/AuthContext';
 import { loginPath } from '../../utils/redirect';
 import { formatDate } from '../../utils/format';
-import VerifyMobileAlert from '../auth/VerifyMobileAlert';
 
 /** Why a signed-in user cannot read yet, mirroring the backend eligibility rule (docs/SECURITY.md §4). */
-function ineligibility(user: Me, isAdmin: boolean): 'unverified' | 'membership' | null {
-  if (!user.mobileVerified) return 'unverified';
+function ineligibility(user: Me, isAdmin: boolean): 'membership' | null {
   if (!isAdmin && !user.membership?.valid) return 'membership';
   return null;
 }
@@ -108,10 +106,6 @@ export default function BookDetailPage() {
                     Not a member? <Link component={RouterLink} to="/register">Create an account</Link>
                   </Typography>
                 </Stack>
-              )}
-
-              {user && blocked === 'unverified' && (
-                <VerifyMobileAlert user={user} reason="to read books" sx={{ maxWidth: 560 }} />
               )}
 
               {user && blocked === 'membership' && (
